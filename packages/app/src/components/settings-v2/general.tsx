@@ -28,6 +28,7 @@ import {
 import "./settings-v2.css"
 
 const schemeOptions: ("system" | "light" | "dark")[] = ["system", "light", "dark"]
+const tabLayoutOptions: ("horizontal" | "vertical")[] = ["horizontal", "vertical"]
 const fontSettings = {
   ui: {
     action: "settings-ui-font",
@@ -332,6 +333,30 @@ export const SettingsGeneralV2: Component<{
         <PermissionScopeSetting controller={permissionScope} />
 
         <ShellSetting controller={shell} />
+
+        <Show when={platform.platform === "web"}>
+          <SettingsRowV2
+            title={language.t("settings.general.row.tabLayout.title")}
+            description={language.t("settings.general.row.tabLayout.description")}
+          >
+            <SelectV2
+              appearance="inline"
+              data-action="settings-tab-layout"
+              options={tabLayoutOptions}
+              current={settings.general.tabLayout()}
+              placement="bottom-end"
+              gutter={6}
+              label={(option) =>
+                language.t(
+                  option === "vertical"
+                    ? "settings.general.row.tabLayout.option.vertical"
+                    : "settings.general.row.tabLayout.option.horizontal",
+                )
+              }
+              onSelect={(option) => option && settings.general.setTabLayout(option)}
+            />
+          </SettingsRowV2>
+        </Show>
 
         <SettingsRowV2
           title={language.t("settings.general.row.reasoningSummaries.title")}
