@@ -460,6 +460,8 @@ export const dict = {
   "help.tabs.home":
     "You'll find all your sessions and projects on the new Home screen. Selecting a session opens it in a tab.",
   "help.tabs.persistence": "When you reopen the app, your tabs are still open.",
+  "titlebar.tabs.menu": "Tabs",
+  "titlebar.tabs.menu.open": "Open tabs",
   "help.tabs.worktrees":
     "The new design does not support Git Worktrees yet, it's coming soon. So if you'd prefer to continue using the previous layout, you can switch between layouts in Settings. Just keep in mind that the new layout will become permanent in a few weeks.",
   "server.row.noUsername": "no username",
@@ -940,6 +942,10 @@ export const dict = {
   "settings.general.row.mobileTitlebarBottom.title": "Bottom navigation",
   "settings.general.row.mobileTitlebarBottom.description":
     "Place the title bar and session tabs at the bottom of the screen on mobile",
+  "settings.general.row.tabLayout.title": "Tab layout",
+  "settings.general.row.tabLayout.description": "Arrange session tabs across the top or in a sidebar grouped by machine",
+  "settings.general.row.tabLayout.option.horizontal": "Horizontal",
+  "settings.general.row.tabLayout.option.vertical": "Vertical",
   "settings.general.row.showCustomAgents.title": "Show agent",
   "settings.general.row.showCustomAgents.description":
     "Switch between agents in the composer. When hidden, defaults to Build agent.",

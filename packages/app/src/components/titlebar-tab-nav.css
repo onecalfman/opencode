@@ -39,6 +39,16 @@
   gap: 6px;
 }
 
+[data-slot="titlebar-tabs"][data-orientation="vertical"] [data-titlebar-tab-list] {
+  gap: 12px;
+}
+
+[data-slot="titlebar-tabs"][data-orientation="vertical"] [data-titlebar-tab-slot] {
+  width: 100%;
+  max-width: none;
+  flex-shrink: 0;
+}
+
 [data-titlebar-tab-slot] {
   --tab-separator: var(--v2-background-bg-layer-03);
   position: relative;
@@ -57,6 +67,10 @@
   height: 12px;
   border-radius: 9999px;
   background: var(--tab-separator);
+}
+
+[data-slot="titlebar-tabs"][data-orientation="vertical"] [data-titlebar-tab-slot]::before {
+  display: none;
 }
 
 [data-titlebar-tab-slot][data-active="true"] + [data-titlebar-tab-slot]::before {

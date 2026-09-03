@@ -195,9 +195,9 @@ export function PromptInputV2(props: PromptInputV2Props) {
           </Show>
         </div>
 
-        <div class="flex h-11 items-center px-2">
+        <div class="flex min-h-12 items-center px-2 sm:min-h-11">
           <div
-            class="flex min-w-0 flex-1 items-center gap-1"
+            class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pe-1 no-scrollbar overscroll-x-contain"
             aria-hidden={state.mode === "shell"}
             inert={state.mode === "shell" ? true : undefined}
             style={buttons()}
@@ -681,6 +681,7 @@ export function PromptInputV2SubmitButton(props: {
   return (
     <TooltipV2
       placement="top"
+      class="shrink-0"
       inactive={!props.stopping && props.disabled}
       value={props.stopping ? props.stopLabel : props.sendLabel}
     >
@@ -691,7 +692,7 @@ export function PromptInputV2SubmitButton(props: {
         tabIndex={props.mode === "normal" ? undefined : -1}
         icon={props.stopping ? "stop" : props.mode === "shell" ? "arrow-undo-down" : "arrow-up"}
         variant="primary"
-        class="size-7 rounded-md p-[6px] text-v2-icon-icon-muted shadow-[var(--v2-elevation-button-contrast)] disabled:opacity-50"
+        class="size-9 rounded-md p-[8px] text-v2-icon-icon-muted shadow-[var(--v2-elevation-button-contrast)] disabled:opacity-50 sm:size-7 sm:p-[6px]"
         style={{
           "background-image":
             "linear-gradient(180deg,var(--v2-alpha-light-20) 0%,var(--v2-alpha-light-0) 100%),linear-gradient(90deg,var(--v2-background-bg-contrast) 0%,var(--v2-background-bg-contrast) 100%)",

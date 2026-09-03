@@ -18,6 +18,7 @@ import { Button } from "@opencode-ai/ui/button"
 import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
+import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 
@@ -34,11 +35,14 @@ import { createMediaQuery } from "@solid-primitives/media"
 import { readSessionTabsRemovedDetail, SESSION_TABS_REMOVED_EVENT } from "@/components/titlebar-session-events"
 import { useGlobal } from "@/context/global"
 import { ServerConnection, useServer } from "@/context/server"
-import { tabKey, useTabs } from "@/context/tabs"
+import { tabKey, type Tab, useTabs } from "@/context/tabs"
 import type { PromptSession } from "@/context/prompt"
 import "./titlebar.css"
 import { newTabTooltipKeybind } from "./command-tooltip-keybind"
 import { normalizeSessionInfo } from "@/utils/session"
+import { groupTabsByServer } from "./titlebar-tab-group"
+import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "./ui/drawer"
+import { adjacentTabKey } from "./titlebar-tab-order"
 
 const legacyTitlebarHeight = 40
 const v2TitlebarHeight = 36
@@ -79,11 +83,15 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
   const linux = createMemo(() => platform.platform === "desktop" && platform.os === "linux")
   const web = createMemo(() => platform.platform === "web")
+  const verticalTabs = createMemo(() => useV2Titlebar() && web() && settings.general.tabLayout() === "vertical")
+  const verticalRail = createMemo(() => verticalTabs() && !mobile())
+  const mobileVerticalTabs = createMemo(() => verticalTabs() && mobile())
   const macTrafficLights = createMemo(() => mac() && !platform.windowFullscreen?.())
   const zoom = () => platform.webviewZoom?.() ?? 1
   const titlebarZoom = () => (windows() ? Math.max(zoom(), minTitlebarZoom) : zoom())
   const counterZoom = () => (windows() && titlebarZoom() < 1 ? 1 / titlebarZoom() : 1)
   const minHeight = () => {
+    if (verticalRail()) return undefined
     const height = useV2Titlebar() ? v2TitlebarHeight : legacyTitlebarHeight
     if (mac()) return `${height / zoom()}px`
     if (windows()) return `${height / Math.min(titlebarZoom(), 1)}px`
@@ -95,6 +103,12 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
     stack: [] as string[],
     index: 0,
     action: undefined as "back" | "forward" | undefined,
+  })
+  const [mobileTabs, setMobileTabs] = createStore({ open: false })
+
+  createEffect(() => {
+    if (mobileVerticalTabs()) return
+    setMobileTabs("open", false)
   })
 
   const path = () => `${location.pathname}${location.search}${location.hash}`
@@ -171,9 +185,12 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
   return (
     <header
       data-slot={useV2Titlebar() ? "titlebar-v2" : undefined}
+      data-orientation={verticalRail() ? "vertical" : "horizontal"}
       classList={{
         "shrink-0 relative flex flex-row": true,
-        "h-9 bg-v2-background-bg-deep overflow-visible": useV2Titlebar(),
+        "bg-v2-background-bg-deep overflow-visible": useV2Titlebar(),
+        "h-9": useV2Titlebar() && !verticalRail(),
+        "h-full w-60": verticalRail(),
         "h-10 bg-background-base overflow-hidden": !useV2Titlebar(),
         "order-last": bottom(),
       }}
@@ -236,6 +253,57 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
             }
 
             const currentTab = () => matchRoute(layout.route())
+            const orderedTabs = () =>
+              verticalTabs() ? groupTabsByServer(tabsStore).flatMap((group) => group.tabs) : tabsStore
+            const selectAdjacentTab = (offset: -1 | 1) => {
+              const current = currentTab()
+              const key = adjacentTabKey(
+                orderedTabs().map(tabKey),
+                current ? tabKey(current) : undefined,
+                offset,
+              )
+              const next = tabsStore.find((tab) => tabKey(tab) === key)
+              if (next) tabs.select(next)
+            }
+            const closeTab = (tab: Tab) => {
+              const index = tabsStore.findIndex((item) => tabKey(item) === tabKey(tab))
+              if (index === -1) return
+              if (verticalTabs() && currentTab() === tab && orderedTabs().length > 1) {
+                const visual = orderedTabs()
+                const current = visual.findIndex((item) => tabKey(item) === tabKey(tab))
+                tabs.select(visual[current + 1] ?? visual[current - 1]!)
+              }
+              tabsStoreActions.closeTab(index)
+            }
+
+            command.register("titlebar-tab-cycle", () => [
+              {
+                id: "tab.prev",
+                category: "tab",
+                title: "",
+                keybind: "mod+option+ArrowLeft,ctrl+shift+tab",
+                hidden: true,
+                onSelect: () => selectAdjacentTab(-1),
+              },
+              {
+                id: "tab.next",
+                category: "tab",
+                title: "",
+                keybind: "mod+option+ArrowRight,ctrl+tab",
+                hidden: true,
+                onSelect: () => selectAdjacentTab(1),
+              },
+              ...orderedTabs()
+                .slice(0, 9)
+                .map((tab, index) => ({
+                  id: `tab.${index + 1}`,
+                  category: "tab",
+                  title: "",
+                  keybind: `mod+${index + 1}`,
+                  hidden: true,
+                  onSelect: () => tabs.select(tab),
+                })),
+            ])
 
             createEffect(() => {
               const route = layout.route()
@@ -342,9 +410,7 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                   title: language.t("command.tab.close"),
                   keybind: "mod+w",
                   hidden: true,
-                  onSelect: () => {
-                    tabsStoreActions.closeTab(tabsStore.findIndex((tab) => current === tab))
-                  },
+                  onSelect: () => closeTab(current),
                 },
                 {
                   id: "tab.reopenClosed",
@@ -357,61 +423,85 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
             })
 
             const [tabsAreOverflowing, setTabsAreOverflowing] = createSignal(false)
+            const Tabs = (props: { orientation: "horizontal" | "vertical"; closeOnNavigate?: boolean }) => (
+              <TitlebarTabStrip
+                tabs={tabsStore}
+                currentTab={currentTab}
+                forceTruncate={tabsAreOverflowing()}
+                orientation={props.orientation}
+                onOverflowChange={setTabsAreOverflowing}
+                onNavigate={(tab, el) => {
+                  tabs.select(tab)
+                  el?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" })
+                  if (props.closeOnNavigate) setMobileTabs("open", false)
+                }}
+                onClose={(tab) => {
+                  closeTab(tab)
+                }}
+                onReorder={(keys) => tabsStoreActions.reorder(keys)}
+              />
+            )
 
             return (
               <div
-                class="h-full flex-1 overflow-hidden flex flex-row items-center gap-1.5 px-2 md:pr-3"
+                class="h-full flex-1 overflow-hidden flex gap-1.5"
                 classList={{
-                  "pt-2": !bottom(),
-                  "pb-2": bottom(),
-                  "md:pl-2": macTrafficLights(),
-                  "md:pl-4": !macTrafficLights(),
+                  "flex-row items-center px-2 md:pr-3": !verticalRail(),
+                  "flex-col items-stretch px-2 py-2": verticalRail(),
+                  "pt-2": !verticalRail() && !bottom(),
+                  "pb-2": !verticalRail() && bottom(),
+                  "md:pl-2": !verticalRail() && macTrafficLights(),
+                  "md:pl-4": !verticalRail() && !macTrafficLights(),
                 }}
               >
                 <ChannelIndicator debugTools={props.debugTools} />
                 <Show when={windows() || linux()}>
                   <WindowsAppMenu command={command} platform={platform} variant="v2" />
                 </Show>
-                <TooltipV2
-                  placement="bottom"
-                  value={
-                    <>
-                      {language.t("home.title")}
-                      <KeybindV2 keys={command.keybindParts("home.toggle")} variant="neutral" />
-                    </>
-                  }
-                  class="shrink-0"
-                >
-                  <IconButtonV2
-                    type="button"
-                    variant="ghost-muted"
-                    size="large"
-                    class="!w-9 shrink-0"
-                    icon={<IconV2 name="grid-plus" />}
-                    state={layout.route().type === "home" ? "pressed" : undefined}
-                    onClick={toggleHome}
-                    aria-label={language.t("home.title")}
-                    aria-pressed={layout.route().type === "home"}
-                  />
-                </TooltipV2>
+                <Show when={!mobileVerticalTabs()}>
+                  <TooltipV2
+                    placement={verticalRail() ? (language.direction() === "rtl" ? "left" : "right") : "bottom"}
+                    value={
+                      <>
+                        {language.t("home.title")}
+                        <KeybindV2 keys={command.keybindParts("home.toggle")} variant="neutral" />
+                      </>
+                    }
+                    class="shrink-0"
+                  >
+                    <IconButtonV2
+                      type="button"
+                      variant="ghost-muted"
+                      size="large"
+                      class={verticalRail() ? "!w-full shrink-0" : "!w-9 shrink-0"}
+                      icon={<IconV2 name="grid-plus" />}
+                      state={layout.route().type === "home" ? "pressed" : undefined}
+                      onClick={toggleHome}
+                      aria-label={language.t("home.title")}
+                      aria-pressed={layout.route().type === "home"}
+                    />
+                  </TooltipV2>
+                </Show>
 
-                <TitlebarTabStrip
-                  tabs={tabsStore}
-                  currentTab={currentTab}
-                  forceTruncate={tabsAreOverflowing()}
-                  onOverflowChange={setTabsAreOverflowing}
-                  onNavigate={(tab, el) => {
-                    tabs.select(tab)
-                    el?.scrollIntoView({ behavior: "instant" })
-                  }}
-                  onClose={(tab) => {
-                    const index = tabsStore.findIndex((item) => tabKey(item) === tabKey(tab))
-                    if (index !== -1) tabsStoreActions.closeTab(index)
-                  }}
-                  onReorder={(keys) => tabsStoreActions.reorder(keys)}
-                />
+                <Show when={mobileVerticalTabs()}>
+                  <TooltipV2 placement="bottom" value={language.t("titlebar.tabs.menu.open")}>
+                    <IconButtonV2
+                      type="button"
+                      variant="ghost-muted"
+                      size="large"
+                      class="!w-9 shrink-0"
+                      icon={<IconV2 name="menu" />}
+                      onClick={() => setMobileTabs("open", true)}
+                      aria-label={language.t("titlebar.tabs.menu.open")}
+                      aria-expanded={mobileTabs.open}
+                    />
+                  </TooltipV2>
+                </Show>
+                <Show when={!mobileVerticalTabs()}>
+                  <Tabs orientation={verticalRail() ? "vertical" : "horizontal"} />
+                </Show>
                 <TooltipV2
-                  placement="bottom"
+                  placement={verticalRail() ? (language.direction() === "rtl" ? "left" : "right") : "bottom"}
                   value={
                     <>
                       {language.t("command.session.new")}
@@ -423,14 +513,62 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                     type="button"
                     variant="ghost-muted"
                     size="large"
-                    class="shrink-0"
+                    class={verticalRail() ? "!w-full shrink-0" : "shrink-0"}
                     icon={<IconV2 name="plus" />}
                     onClick={openNewTab}
                     aria-label={language.t("command.session.new")}
                   />
                 </TooltipV2>
-                <div class="flex-1" />
+                <div class="flex-1" classList={{ hidden: verticalRail() }} />
                 <TitlebarV2Right state={v2RightState()} />
+                <Show when={mobileVerticalTabs()}>
+                  <Drawer
+                    open={mobileTabs.open}
+                    onOpenChange={(open) => setMobileTabs("open", open)}
+                    side={language.direction() === "rtl" ? "right" : "left"}
+                  >
+                    <DrawerContent
+                      style={{
+                        width: "280px",
+                        "inset-inline-start": "6px",
+                        "inset-inline-end": "auto",
+                      }}
+                    >
+                      <div class="flex h-12 w-full shrink-0 items-center gap-3 border-b border-v2-border-border-muted px-3">
+                        <DrawerTitle class="min-w-0 flex-1 text-start">
+                          {language.t("titlebar.tabs.menu")}
+                        </DrawerTitle>
+                        <DrawerClose
+                          as={IconButtonV2}
+                          type="button"
+                          size="small"
+                          variant="ghost-muted"
+                          aria-label={language.t("common.close")}
+                          icon={<IconV2 name="xmark-small" />}
+                        />
+                      </div>
+                      <div class="flex min-h-0 w-full flex-1 flex-col gap-2 bg-v2-background-bg-deep p-2">
+                        <ButtonV2
+                          type="button"
+                          variant="ghost-muted"
+                          size="large"
+                          class="w-full shrink-0 justify-start ![font-weight:440]"
+                          onClick={() => {
+                            if (layout.route().type !== "home") toggleHome()
+                            setMobileTabs("open", false)
+                          }}
+                          aria-current={layout.route().type === "home" ? "page" : undefined}
+                        >
+                          <IconV2 name="grid-plus" />
+                          {language.t("home.projects")}
+                        </ButtonV2>
+                        <div class="flex min-h-0 w-full flex-1">
+                          <Tabs orientation="vertical" closeOnNavigate />
+                        </div>
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
+                </Show>
               </div>
             )
           }}

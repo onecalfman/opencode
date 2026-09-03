@@ -1,13 +1,20 @@
-import { createEffect, Suspense, type ParentProps } from "solid-js"
+import { createEffect, createMemo, Suspense, type ParentProps } from "solid-js"
+import { createMediaQuery } from "@solid-primitives/media"
 import { createStore } from "solid-js/store"
 import { DebugBar } from "@/components/debug-bar"
 import { TabsInfoPopup } from "@/components/help-button"
 import { Titlebar, type TitlebarUpdate } from "@/components/titlebar"
 import { usePlatform } from "@/context/platform"
 import { setV2Toast, ToastRegion } from "@/utils/toast"
+import { useSettings } from "@/context/settings"
 
 export default function NewLayout(props: ParentProps) {
   const platform = usePlatform()
+  const settings = useSettings()
+  const mobile = createMediaQuery("(max-width: 767px)")
+  const verticalRail = createMemo(
+    () => platform.platform === "web" && !mobile() && settings.general.tabLayout() === "vertical",
+  )
   const [state, setState] = createStore({ debugTools: true })
 
   createEffect(() => setV2Toast(true))
@@ -30,17 +37,22 @@ export default function NewLayout(props: ParentProps) {
         "padding-bottom": "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <Titlebar
-        update={update}
-        debugTools={
-          import.meta.env.DEV
-            ? { visible: state.debugTools, toggle: () => setState("debugTools", (value) => !value) }
-            : undefined
-        }
-      />
-      <main class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
-        <Suspense>{props.children}</Suspense>
-      </main>
+      <div
+        class="flex flex-1 min-h-0 min-w-0"
+        classList={{ "flex-row": verticalRail(), "flex-col": !verticalRail() }}
+      >
+        <Titlebar
+          update={update}
+          debugTools={
+            import.meta.env.DEV
+              ? { visible: state.debugTools, toggle: () => setState("debugTools", (value) => !value) }
+              : undefined
+          }
+        />
+        <main class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
+          <Suspense>{props.children}</Suspense>
+        </main>
+      </div>
       {import.meta.env.DEV && state.debugTools && <DebugBar inline />}
       <TabsInfoPopup />
       <ToastRegion v2 />
