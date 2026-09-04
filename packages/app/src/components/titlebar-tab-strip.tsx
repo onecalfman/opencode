@@ -370,7 +370,7 @@ export function TitlebarTabStrip(props: {
       <section data-titlebar-tab-project-group class="flex min-w-0 flex-col gap-1">
         <h3
           data-titlebar-tab-project-label
-          class="flex h-6 min-w-0 items-center gap-1.5 px-1.5 text-[11px] font-medium text-v2-text-text-faint"
+          class="flex h-6 min-w-0 items-center gap-1.5 px-1.5 text-[11px] font-medium text-v2-text-text-muted"
           title={details()?.name}
         >
           <Show when={details()?.tag}>
@@ -481,6 +481,7 @@ export function TitlebarTabStrip(props: {
         >
           <div
             data-titlebar-tab-list
+            data-multiple-servers={servers().length > 1 ? "true" : undefined}
             class="flex w-full min-w-0"
             classList={{
               "flex-row items-center": orientation() === "horizontal",
@@ -495,7 +496,7 @@ export function TitlebarTabStrip(props: {
                     <Show when={servers().length > 1}>
                       <h2
                         data-titlebar-tab-group-label
-                        class="truncate px-1.5 text-[10px] font-semibold uppercase tracking-wide text-v2-text-text-faint"
+                        class="truncate px-1.5 text-[10px] font-semibold uppercase tracking-wide text-v2-text-text-muted"
                         title={machineName(server)}
                       >
                         <bdi dir="auto">{machineName(server)}</bdi>

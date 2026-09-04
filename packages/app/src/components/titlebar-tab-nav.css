@@ -43,6 +43,22 @@
   gap: 12px;
 }
 
+[data-slot="titlebar-tabs"][data-orientation="vertical"]
+  [data-titlebar-tab-list][data-multiple-servers="true"]
+  [data-titlebar-tab-group] {
+  padding: 6px;
+  border: 1px solid var(--v2-border-border-strong);
+  border-radius: 8px;
+  background: var(--v2-background-bg-layer-01);
+}
+
+[data-slot="titlebar-tabs"][data-orientation="vertical"]
+  [data-titlebar-tab-list][data-multiple-servers="true"]
+  [data-titlebar-tab-group-label] {
+  padding-block: 2px 4px;
+  padding-inline: 6px;
+}
+
 [data-slot="titlebar-tabs"][data-orientation="vertical"] [data-titlebar-tab-slot] {
   width: 100%;
   max-width: none;
