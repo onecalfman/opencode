@@ -21,9 +21,9 @@ export function projectForTab(tab: Tab, info: TabInfo | undefined, serverCtx: Se
 }
 
 export function projectGroupKeyForTab(tab: Tab, info: TabInfo | undefined, serverCtx: ServerCtx | undefined) {
+  if (tab.type === "draft") return tab.directory
   const project = projectForTab(tab, info, serverCtx)
   if (project) return project.id ?? project.worktree
-  if (tab.type === "draft") return tab.worktree ?? tab.directory
   return (
     serverCtx?.sync.session.peek(tab.sessionId)?.projectID ??
     info?.projectID ??
