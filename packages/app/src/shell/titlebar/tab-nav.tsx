@@ -443,6 +443,7 @@ export function DraftTabItem(props: {
   ref?: Ref<HTMLDivElement>
   href: string
   title: string
+  tag?: string
   active?: boolean
   onNavigate: () => void
   onClose: () => void
@@ -526,6 +527,16 @@ export function DraftTabItem(props: {
             />
           </svg>
         </span>
+        <Show when={props.tag}>
+          {(tag) => (
+            <bdi
+              dir="auto"
+              class="max-w-14 shrink-0 truncate rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-semibold leading-4 text-v2-text-text-muted"
+            >
+              {tag()}
+            </bdi>
+          )}
+        </Show>
         <span
           data-titlebar-tab-title
           class="min-w-0 flex-1 overflow-hidden text-clip whitespace-nowrap outline-none leading-4"
