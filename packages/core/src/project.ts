@@ -92,6 +92,7 @@ function fromRow(row: typeof ProjectTable.$inferSelect): Info {
     canonical: row.worktree,
     vcs: row.vcs ?? undefined,
     name: row.name ?? undefined,
+    tag: row.tag ?? undefined,
     icon,
     commands: row.commands ?? undefined,
     time: {
@@ -235,6 +236,7 @@ const layer = Layer.effect(
         .set({
           worktree: input.canonical,
           name: input.name === undefined ? undefined : input.name || null,
+          tag: input.tag === undefined ? undefined : input.tag.trim() || null,
           icon_url_override: input.icon?.override === undefined ? undefined : input.icon.override || null,
           icon_color: input.icon?.color === undefined ? undefined : input.icon.color || null,
           commands:

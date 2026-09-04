@@ -7,8 +7,9 @@ import { useLanguage } from "@/runtime/i18n/language"
 import type { LocalProject } from "@/shell/state/layout"
 import { ServerConnection } from "@/runtime/server/registry"
 import { showToast } from "@/shell/notifications/toast"
+import { projectTag } from "@/shell/layout/helpers"
 
-type ProjectPatch = Pick<ProjectUpdateInput, "name" | "icon" | "commands">
+type ProjectPatch = Pick<ProjectUpdateInput, "name" | "tag" | "icon" | "commands">
 
 export function createEditProjectModel(props: { project: LocalProject; server: ServerConnection.Any }) {
   const language = useLanguage()
@@ -19,6 +20,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
 
   const [store, setStore] = createStore({
     name: defaultName(),
+    tag: props.project.tag ?? "",
     color: props.project.icon?.color,
     iconOverride: props.project.icon?.override,
     startup: props.project.commands?.start ?? "",
@@ -29,6 +31,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
 
   const saved = {
     name: props.project.name ?? "",
+    tag: props.project.tag ?? "",
     startup: store.startup.trim(),
     color: store.color,
     iconOverride: store.iconOverride,
@@ -80,6 +83,14 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
     })
   }
 
+  const saveTag = () => {
+    const value = store.tag.trim()
+    if (!store.saving && value === saved.tag) return
+    persist({ tag: value }, () => {
+      saved.tag = value
+    })
+  }
+
   const saveIcon = (color = store.color, override = store.iconOverride) => {
     if (!store.saving && color === saved.color && override === saved.iconOverride) return
     persist({ icon: { color: color ?? "", override: override ?? "" } }, () => {
@@ -108,7 +119,9 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
     setStore,
     folderName,
     defaultName,
+    defaultTag: () => projectTag({ worktree: props.project.worktree }),
     saveName,
+    saveTag,
     saveStartup,
     setColor(value: string | undefined) {
       setStore("color", value)

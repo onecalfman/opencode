@@ -4,6 +4,17 @@ import { pathKey } from "@/workspaces/path-key"
 import { isProjectDirectory } from "@/workspaces/paths"
 import type { ServerConnection } from "@/runtime/server/registry"
 import type { HomeProjectSelection } from "@/shell/state/layout"
+import { getFilename } from "@opencode/util/path"
+
+const tagSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+export function projectTag(project: { tag?: string; worktree: string }) {
+  const tag = project.tag?.trim()
+  if (tag) return tag
+  return Array.from(tagSegmenter.segment(getFilename(project.worktree) || project.worktree), (part) => part.segment)
+    .slice(0, 4)
+    .join("")
+}
 
 export function compareSessionTime(a: SessionInfo, b: SessionInfo) {
   const updated = (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created)

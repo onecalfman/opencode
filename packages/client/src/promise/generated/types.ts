@@ -719,6 +719,7 @@ export type Project = {
   canonical: AbsolutePath
   vcs?: ProjectVcs
   name?: string
+  tag?: string
   icon?: ProjectIcon
   commands?: ProjectCommands
   time: ProjectTime
@@ -1614,6 +1615,7 @@ export type ProjectUpdated = {
     canonical: AbsolutePath
     vcs?: ProjectVcs
     name?: string
+    tag?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
     time: ProjectTime
@@ -6206,24 +6208,35 @@ export type ProjectUpdateInput = {
   readonly canonical?: {
     readonly canonical?: string
     readonly name?: string
+    readonly tag?: string
     readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
     readonly commands?: { readonly start?: string }
   }["canonical"]
   readonly name?: {
     readonly canonical?: string
     readonly name?: string
+    readonly tag?: string
     readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
     readonly commands?: { readonly start?: string }
   }["name"]
+  readonly tag?: {
+    readonly canonical?: string
+    readonly name?: string
+    readonly tag?: string
+    readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
+    readonly commands?: { readonly start?: string }
+  }["tag"]
   readonly icon?: {
     readonly canonical?: string
     readonly name?: string
+    readonly tag?: string
     readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
     readonly commands?: { readonly start?: string }
   }["icon"]
   readonly commands?: {
     readonly canonical?: string
     readonly name?: string
+    readonly tag?: string
     readonly icon?: { readonly url?: string; readonly override?: string; readonly color?: string }
     readonly commands?: { readonly start?: string }
   }["commands"]

@@ -42,6 +42,7 @@ export const Info = Schema.Struct({
   canonical: AbsolutePath,
   vcs: optional(Vcs),
   name: optional(Schema.String),
+  tag: optional(Schema.String),
   icon: optional(Icon),
   commands: optional(Commands),
   time: Time,
@@ -53,6 +54,7 @@ export const UpdateInput = Schema.Struct({
   projectID: ID,
   canonical: optional(AbsolutePath),
   name: optional(Schema.String),
+  tag: optional(Schema.String),
   icon: optional(Icon),
   commands: optional(Commands),
 }).annotate({ identifier: "Project.UpdateInput" })

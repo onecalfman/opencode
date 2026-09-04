@@ -85,6 +85,23 @@ export const SettingsProjectGeneral: Component<{
           </SettingsRow>
 
           <SettingsRow
+            title={language.t("project.settings.tag.title")}
+            description={language.t("project.settings.tag.description")}
+          >
+            <div class="project-settings-name">
+              <TextInput
+                type="text"
+                appearance="base"
+                value={model.store.tag}
+                placeholder={model.defaultTag()}
+                aria-label={language.t("project.settings.tag.title")}
+                onInput={(event) => model.setStore("tag", event.currentTarget.value)}
+                onBlur={model.saveTag}
+              />
+            </div>
+          </SettingsRow>
+
+          <SettingsRow
             title={language.t("dialog.project.edit.icon")}
             description={language.t("project.settings.icon.description")}
           >

@@ -94,12 +94,14 @@ describe("Project.update", () => {
         yield* project.update({
           projectID: id,
           name: "Updated",
+          tag: " API ",
           icon: { color: "blue", override: "data:image/png;base64,test" },
           commands: { start: "bun install" },
         }),
       ).toMatchObject({
         id,
         name: "Updated",
+        tag: "API",
         icon: { color: "blue", override: "data:image/png;base64,test" },
         commands: { start: "bun install" },
       })
@@ -108,6 +110,7 @@ describe("Project.update", () => {
         yield* project.update({
           projectID: id,
           name: "",
+          tag: "",
           icon: { color: "", override: "" },
           commands: { start: "" },
         }),

@@ -104,6 +104,7 @@ type NextProject = {
   readonly worktree: string
   readonly vcs: string | null
   readonly name: string | null
+  readonly tag: string | null
   readonly icon_url: string | null
   readonly icon_url_override: string | null
   readonly icon_color: string | null
@@ -121,6 +122,7 @@ const NEXT_PROJECT_COLUMNS = {
   worktree: "required",
   vcs: "nullable",
   name: "nullable",
+  tag: "nullable",
   icon_url: "nullable",
   icon_url_override: { fallback: "icon_url" },
   icon_color: "nullable",
@@ -770,10 +772,10 @@ function importNextDatabase(
               if (project)
                 yield* tx.run(sql`
                   INSERT OR IGNORE INTO project (
-                    id, worktree, vcs, name, icon_url, icon_url_override, icon_color,
+                    id, worktree, vcs, name, tag, icon_url, icon_url_override, icon_color,
                     time_created, time_updated, time_initialized, time_active, sandboxes, commands
                   ) VALUES (
-                    ${project.id}, ${project.worktree}, ${project.vcs}, ${project.name}, ${project.icon_url},
+                    ${project.id}, ${project.worktree}, ${project.vcs}, ${project.name}, ${project.tag}, ${project.icon_url},
                     ${project.icon_url_override}, ${project.icon_color}, ${project.time_created}, ${project.time_updated},
                     ${project.time_initialized}, ${project.time_updated}, ${project.sandboxes}, ${project.commands}
                   )

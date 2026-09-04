@@ -1,6 +1,8 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "project.settings.tag.title": "Project tag",
+  "project.settings.tag.description": "A short label shown beside this project's chat tabs.",
   ...DESKTOP_NATIVE_ENGLISH,
   "session.location.unavailable": "Session location unavailable",
   "session.location.description": "Choose another directory to continue this session.",

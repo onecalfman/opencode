@@ -1510,6 +1510,7 @@ export function make(options: ClientOptions) {
             body: {
               canonical: input["canonical"],
               name: input["name"],
+              tag: input["tag"],
               icon: input["icon"],
               commands: input["commands"],
             },

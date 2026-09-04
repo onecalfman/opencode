@@ -129,6 +129,7 @@ export const VcsState = Persistence.struct({
 
 const ProjectMeta = Persistence.struct({
   name: Schema.optional(Schema.String),
+  tag: Schema.optional(Schema.String),
   icon: Schema.optional(
     Persistence.struct({
       override: Schema.optional(Schema.String),

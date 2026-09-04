@@ -14,6 +14,7 @@ export const ProjectTable = sqliteTable("project", {
   worktree: absoluteColumn().notNull(),
   vcs: text().$type<ProjectSchema.Vcs["type"]>(),
   name: text(),
+  tag: text(),
   icon_url: text(),
   icon_url_override: text(),
   icon_color: text(),

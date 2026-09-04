@@ -1689,6 +1689,7 @@ export type ProjectUpdateInput = {
   readonly projectID: Project.ID
   readonly canonical?: AbsolutePath | undefined
   readonly name?: string | undefined
+  readonly tag?: string | undefined
   readonly icon?: Project.Icon | undefined
   readonly commands?: Project.Commands | undefined
 }
