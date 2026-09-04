@@ -41,6 +41,43 @@ test("tab busy indicator reflects the tab server's own status and keeps its proj
   await expect(tabA.locator('[data-component="session-progress-indicator-v2"]')).toHaveCount(0)
 })
 
+test("vertical tabs group sessions by project within each server", async ({ page }) => {
+  await mockServers(page)
+  await page.addInitScript(
+    ({ serverA, serverB, sessionA, sessionB }) => {
+      localStorage.setItem(
+        "settings.v3",
+        JSON.stringify({ general: { newLayoutDesigns: true, tabLayout: "vertical" } }),
+      )
+      localStorage.setItem("opencode.global.dat:server", JSON.stringify({ list: [serverB] }))
+      localStorage.setItem(
+        "opencode.window.browser.dat:tabs",
+        JSON.stringify([
+          { type: "session", server: serverA, sessionId: sessionA },
+          { type: "session", server: serverB, sessionId: sessionB },
+        ]),
+      )
+    },
+    { serverA, serverB, sessionA: sessionA.id, sessionB: sessionB.id },
+  )
+
+  const hrefA = `/server/${base64Encode(serverA)}/session/${sessionA.id}`
+  const hrefB = `/server/${base64Encode(serverB)}/session/${sessionB.id}`
+  await page.goto(hrefA)
+  await expect(page.getByText(sessionA.title).first()).toBeVisible()
+
+  const projectA = page
+    .locator('[data-titlebar-tab-project-group]')
+    .filter({ has: page.locator(`a[href="${hrefA}"]`) })
+  const projectB = page
+    .locator('[data-titlebar-tab-project-group]')
+    .filter({ has: page.locator(`a[href="${hrefB}"]`) })
+  await expect(projectA.locator("[data-titlebar-tab-project-label]")).toContainText("server-a")
+  await expect(projectB.locator("[data-titlebar-tab-project-label]")).toContainText("server-b")
+  await expect(projectB.locator("[data-titlebar-tab-project-label]")).toContainText("🚀/β")
+  await expect(projectB.locator("[data-titlebar-tab] [data-project-tag]")).toBeHidden()
+})
+
 function session(id: string, directory: string, title: string) {
   return {
     id,

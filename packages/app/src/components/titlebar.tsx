@@ -40,7 +40,8 @@ import type { PromptSession } from "@/context/prompt"
 import "./titlebar.css"
 import { newTabTooltipKeybind } from "./command-tooltip-keybind"
 import { normalizeSessionInfo } from "@/utils/session"
-import { groupTabsByServer } from "./titlebar-tab-group"
+import { groupTabsByServerAndProject } from "./titlebar-tab-group"
+import { projectGroupKeyForTab } from "./titlebar-tab-project"
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "./ui/drawer"
 import { adjacentTabKey } from "./titlebar-tab-order"
 
@@ -253,8 +254,20 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
             }
 
             const currentTab = () => matchRoute(layout.route())
+            const projectKey = (tab: Tab) => {
+              const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
+              return projectGroupKeyForTab(
+                tab,
+                tabs.info[tabKey(tab)],
+                conn ? global.ensureServerCtx(conn) : undefined,
+              )
+            }
             const orderedTabs = () =>
-              verticalTabs() ? groupTabsByServer(tabsStore).flatMap((group) => group.tabs) : tabsStore
+              verticalTabs()
+                ? groupTabsByServerAndProject(tabsStore, projectKey).flatMap((server) =>
+                    server.projects.flatMap((project) => project.tabs),
+                  )
+                : tabsStore
             const selectAdjacentTab = (offset: -1 | 1) => {
               const current = currentTab()
               const key = adjacentTabKey(

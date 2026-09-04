@@ -49,6 +49,16 @@
   flex-shrink: 0;
 }
 
+[data-slot="titlebar-tabs"][data-orientation="vertical"] [data-titlebar-tab] [data-project-tag] {
+  display: none;
+}
+
+[data-titlebar-tab-project-group]:not(:first-child) {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--v2-border-border-muted);
+}
+
 [data-titlebar-tab-slot] {
   --tab-separator: var(--v2-background-bg-layer-03);
   position: relative;

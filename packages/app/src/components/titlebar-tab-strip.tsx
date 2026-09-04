@@ -18,9 +18,10 @@ import { base64Encode } from "@opencode-ai/core/util/encode"
 import { showToast } from "@/utils/toast"
 import { canStartTabDrag, isTabCloseTarget } from "./titlebar-tab-gesture"
 import { mergeVisibleTabOrder } from "./titlebar-tab-order"
-import { groupTabsByServer } from "./titlebar-tab-group"
+import { groupTabsByServerAndProject } from "./titlebar-tab-group"
 import type { Session } from "@opencode-ai/sdk/v2"
-import { projectForDirectory, projectTag } from "@/pages/layout/helpers"
+import { displayName, projectTag } from "@/pages/layout/helpers"
+import { directoryForTab, projectForTab, projectGroupKeyForTab } from "./titlebar-tab-project"
 
 export type TabOrientation = "horizontal" | "vertical"
 
@@ -239,19 +240,36 @@ export function TitlebarTabStrip(props: {
 }) {
   const global = useGlobal()
   const language = useLanguage()
+  const tabs = useTabs()
   let scrollRef!: HTMLDivElement
   let listRef!: HTMLDivElement
   let resizeFrame: number | undefined
   const [visibility, setVisibility] = createStore<Record<string, boolean>>({})
   const orientation = () => props.orientation ?? "horizontal"
+  const serverCtx = (key: ServerConnection.Key) => {
+    const conn = global.servers.list().find((item) => ServerConnection.key(item) === key)
+    return conn ? global.ensureServerCtx(conn) : undefined
+  }
+  const projectKey = (tab: Tab) => projectGroupKeyForTab(tab, tabs.info[tabKey(tab)], serverCtx(tab.server))
+  const verticalGroups = createMemo(() => groupTabsByServerAndProject(props.tabs, projectKey))
+  const servers = createMemo(() => verticalGroups().map((group) => group.server))
+  const projectKeys = (server: ServerConnection.Key) =>
+    verticalGroups()
+      .find((group) => group.server === server)
+      ?.projects.map((project) => project.project) ?? []
+  const projectTabs = (server: ServerConnection.Key, project: string) =>
+    verticalGroups()
+      .find((group) => group.server === server)
+      ?.projects.find((group) => group.project === project)?.tabs ?? []
   const orderedTabs = createMemo(() =>
-    orientation() === "vertical" ? groupTabsByServer(props.tabs).flatMap((group) => group.tabs) : props.tabs,
+    orientation() === "vertical"
+      ? verticalGroups().flatMap((server) => server.projects.flatMap((project) => project.tabs))
+      : props.tabs,
   )
   const visibleTabs = createMemo(() =>
     orderedTabs().filter((tab) => tab.type === "draft" || visibility[tabKey(tab)]),
   )
   const visibleTabIds = () => visibleTabs().map(tabKey)
-  const servers = createMemo(() => groupTabsByServer(orderedTabs()).map((group) => group.server))
   const machineName = (key: ServerConnection.Key) => {
     const conn = global.servers.list().find((item) => ServerConnection.key(item) === key)
     return conn ? serverName(conn) : key
@@ -294,18 +312,15 @@ export function TitlebarTabStrip(props: {
 
   const renderTab = (tab: Tab) => {
     const id = tabKey(tab)
-    let ref!: HTMLDivElement
     const visibleIndex = () => visibleTabs().findIndex((item) => tabKey(item) === id)
-    const sortableIndex = () =>
-      orientation() === "vertical"
-        ? visibleTabs()
-            .filter((item) => item.server === tab.server)
-            .findIndex((item) => tabKey(item) === id)
-        : visibleIndex()
-    const serverCtx = createMemo(() => {
-      const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
-      if (conn) return global.ensureServerCtx(conn)
-    })
+    const sortableIndex = () => {
+      if (orientation() !== "vertical") return visibleIndex()
+      const key = projectKey(tab)
+      return visibleTabs()
+        .filter((item) => item.server === tab.server && projectKey(item) === key)
+        .findIndex((item) => tabKey(item) === id)
+    }
+    const ctx = createMemo(() => serverCtx(tab.server))
 
     if (tab.type === "session") {
       return (
@@ -315,14 +330,11 @@ export function TitlebarTabStrip(props: {
           index={sortableIndex}
           active={() => props.currentTab() === tab}
           forceTruncate={props.forceTruncate}
-          serverCtx={serverCtx}
+          serverCtx={ctx}
           onVisibleChange={(visible) => setVisibility(id, visible)}
-          onNavigate={(element) => {
-            ref = element
-            props.onNavigate(tab, element)
-          }}
+          onNavigate={(element) => props.onNavigate(tab, element)}
           onClose={() => props.onClose(tab)}
-          group={orientation() === "vertical" ? tab.server : undefined}
+          group={orientation() === "vertical" ? `${tab.server}\n${projectKey(tab)}` : undefined}
         />
       )
     }
@@ -334,17 +346,51 @@ export function TitlebarTabStrip(props: {
         index={sortableIndex}
         active={() => props.currentTab() === tab}
         title={language.t("command.session.new")}
-        tag={projectTag(
-          projectForDirectory(tab.directory, serverCtx()?.projects.list() ?? []) ??
-            projectForDirectory(tab.directory, serverCtx()?.sync.data.project ?? []) ?? { worktree: tab.directory },
-        )}
-        onNavigate={(element) => {
-          ref = element
-          props.onNavigate(tab, element)
-        }}
+        tag={projectTag(projectForTab(tab, undefined, ctx()) ?? { worktree: tab.directory })}
+        onNavigate={(element) => props.onNavigate(tab, element)}
         onClose={() => props.onClose(tab)}
-        group={orientation() === "vertical" ? tab.server : undefined}
+        group={orientation() === "vertical" ? `${tab.server}\n${projectKey(tab)}` : undefined}
       />
+    )
+  }
+
+  const renderProject = (server: ServerConnection.Key, key: string) => {
+    const details = createMemo(() => {
+      const tab = projectTabs(server, key)[0]
+      if (!tab) return undefined
+      const info = tab.type === "session" ? tabs.info[tabKey(tab)] : undefined
+      const ctx = serverCtx(server)
+      const project = projectForTab(tab, info, ctx)
+      return {
+        name: displayName(project ?? { worktree: directoryForTab(tab, info, ctx) ?? key }),
+        tag: project?.tag?.trim(),
+      }
+    })
+    return (
+      <section data-titlebar-tab-project-group class="flex min-w-0 flex-col gap-1">
+        <h3
+          data-titlebar-tab-project-label
+          class="flex h-6 min-w-0 items-center gap-1.5 px-1.5 text-[11px] font-medium text-v2-text-text-faint"
+          title={details()?.name}
+        >
+          <Show when={details()?.tag}>
+            {(tag) => (
+              <bdi
+                dir="auto"
+                class="max-w-14 shrink-0 overflow-hidden text-ellipsis rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-semibold leading-4 text-v2-text-text-muted"
+              >
+                {tag()}
+              </bdi>
+            )}
+          </Show>
+          <bdi dir="auto" class="truncate">
+            {details()?.name}
+          </bdi>
+        </h3>
+        <div class="flex min-w-0 flex-col gap-1">
+          <For each={projectTabs(server, key)}>{renderTab}</For>
+        </div>
+      </section>
     )
   }
 
@@ -398,7 +444,8 @@ export function TitlebarTabStrip(props: {
             if (orientation() !== "vertical") return
             const source = props.tabs.find((tab) => tabKey(tab) === event.operation.source?.id.toString())
             const target = props.tabs.find((tab) => tabKey(tab) === event.operation.target?.id.toString())
-            if (source && target && source.server !== target.server) event.preventDefault()
+            if (source && target && (source.server !== target.server || projectKey(source) !== projectKey(target)))
+              event.preventDefault()
           }}
           onDragEnd={(event) => {
             const source = event.operation.source
@@ -406,9 +453,18 @@ export function TitlebarTabStrip(props: {
             const sourceTab = props.tabs.find((tab) => tabKey(tab) === source.id.toString())
             if (!sourceTab) return
             const targetTab = props.tabs.find((tab) => tabKey(tab) === event.operation.target?.id.toString())
-            if (orientation() === "vertical" && targetTab && sourceTab.server !== targetTab.server) return
+            if (
+              orientation() === "vertical" &&
+              targetTab &&
+              (sourceTab.server !== targetTab.server || projectKey(sourceTab) !== projectKey(targetTab))
+            )
+              return
             const current = visibleTabs()
-              .filter((tab) => orientation() !== "vertical" || tab.server === sourceTab.server)
+              .filter(
+                (tab) =>
+                  orientation() !== "vertical" ||
+                  (tab.server === sourceTab.server && projectKey(tab) === projectKey(sourceTab)),
+              )
               .map(tabKey)
 
             const { initialIndex, index } = source
@@ -436,15 +492,17 @@ export function TitlebarTabStrip(props: {
               <For each={servers()}>
                 {(server) => (
                   <section data-titlebar-tab-group class="flex min-w-0 flex-col gap-1">
-                    <h2
-                      data-titlebar-tab-group-label
-                      class="truncate px-1.5 text-[11px] font-medium text-v2-text-text-faint"
-                      title={machineName(server)}
-                    >
-                      <bdi dir="auto">{machineName(server)}</bdi>
-                    </h2>
-                    <div class="flex min-w-0 flex-col gap-1">
-                      <For each={orderedTabs().filter((tab) => tab.server === server)}>{renderTab}</For>
+                    <Show when={servers().length > 1}>
+                      <h2
+                        data-titlebar-tab-group-label
+                        class="truncate px-1.5 text-[10px] font-semibold uppercase tracking-wide text-v2-text-text-faint"
+                        title={machineName(server)}
+                      >
+                        <bdi dir="auto">{machineName(server)}</bdi>
+                      </h2>
+                    </Show>
+                    <div class="flex min-w-0 flex-col">
+                      <For each={projectKeys(server)}>{(project) => renderProject(server, project)}</For>
                     </div>
                   </section>
                 )}
