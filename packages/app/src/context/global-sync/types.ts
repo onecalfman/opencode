@@ -21,6 +21,7 @@ import type { SetStoreFunction, Store } from "solid-js/store"
 
 export type ProjectMeta = {
   name?: string
+  tag?: string
   icon?: {
     override?: string
     color?: string

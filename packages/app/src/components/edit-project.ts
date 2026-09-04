@@ -7,6 +7,7 @@ import { createStore } from "solid-js/store"
 import { useGlobal } from "@/context/global"
 import { type LocalProject } from "@/context/layout"
 import { ServerConnection } from "@/context/server"
+import { projectTag } from "@/pages/layout/helpers"
 
 export function createEditProjectModel(props: { project: LocalProject; server: ServerConnection.Any }) {
   const dialog = useDialog()
@@ -16,6 +17,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
   const defaultName = createMemo(() => props.project.name || folderName())
   const [store, setStore] = createStore({
     name: defaultName(),
+    tag: props.project.tag ?? "",
     color: props.project.icon?.color,
     iconOverride: props.project.icon?.override,
     startup: props.project.commands?.start ?? "",
@@ -68,6 +70,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
   const save = useMutation(() => ({
     mutationFn: async () => {
       const name = store.name.trim() === folderName() ? "" : store.name.trim()
+      const tag = store.tag.trim()
       const start = store.startup.trim()
 
       if (props.project.id && props.project.id !== "global") {
@@ -77,6 +80,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
             projectID: props.project.id,
             directory: props.project.worktree,
             name,
+            tag,
             icon: { color: store.color || "", override: store.iconOverride || "" },
             commands: { start },
           })
@@ -98,6 +102,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
 
       serverCtx().sync.project.meta(props.project.worktree, {
         name,
+        tag,
         icon: { color: store.color || undefined, override: store.iconOverride || undefined },
         commands: { start: start || undefined },
       })
@@ -115,6 +120,7 @@ export function createEditProjectModel(props: { project: LocalProject; server: S
     store,
     setStore,
     folderName,
+    defaultTag: () => projectTag({ worktree: props.project.worktree }),
     defaultName,
     save,
     submit,

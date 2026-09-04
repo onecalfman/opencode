@@ -11,6 +11,7 @@ import { described } from "./metadata"
 const root = "/project"
 const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
+  tag: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Info.fields.icon),
   commands: Schema.optional(Project.Info.fields.commands),
 })
@@ -59,7 +60,7 @@ export const ProjectApi = HttpApi.make("project")
           OpenApi.annotations({
             identifier: "project.update",
             summary: "Update project",
-            description: "Update project properties such as name, icon, and commands.",
+            description: "Update project properties such as name, tag, icon, and commands.",
           }),
         ),
         HttpApiEndpoint.get("directories", `${root}/:projectID/directories`, {

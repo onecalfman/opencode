@@ -2621,7 +2621,7 @@ export class Project extends HeyApiClient {
   /**
    * Update project
    *
-   * Update project properties such as name, icon, and commands.
+   * Update project properties such as name, tag, icon, and commands.
    */
   public update<ThrowOnError extends boolean = false>(
     parameters: {
@@ -2629,6 +2629,7 @@ export class Project extends HeyApiClient {
       directory?: string
       workspace?: string
       name?: string
+      tag?: string
       icon?: ProjectIcon
       commands?: ProjectCommands
     },
@@ -2643,6 +2644,7 @@ export class Project extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "body", key: "name" },
+            { in: "body", key: "tag" },
             { in: "body", key: "icon" },
             { in: "body", key: "commands" },
           ],

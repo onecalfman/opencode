@@ -496,6 +496,22 @@ describe("Project.update", () => {
     }),
   )
 
+  it.live("should update a Unicode tag", () =>
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      const tmp = yield* tmpdirScoped({ git: true })
+      const result = yield* project.fromDirectory(tmp)
+
+      const updated = yield* project.update({
+        projectID: result.project.id,
+        tag: "🚀/β",
+      })
+
+      expect(updated.tag).toBe("🚀/β")
+      expect((yield* project.get(result.project.id))?.tag).toBe("🚀/β")
+    }),
+  )
+
   it.live("should update icon url", () =>
     Effect.gen(function* () {
       const project = yield* Project.Service

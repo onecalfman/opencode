@@ -19,6 +19,7 @@ import {
   homeProjectDirectories,
   homeSessionServerStatus,
   latestRootSession,
+  projectTag,
   sortedRootSessions,
   toggleHomeProjectSelection,
 } from "./helpers"
@@ -250,6 +251,13 @@ describe("layout workspace helpers", () => {
     expect(displayName({ worktree: "/tmp/app" })).toBe("app")
     expect(displayName({ worktree: "/tmp/app", name: "My App" })).toBe("My App")
     expect(displayName({ worktree: "/" })).toBe("/")
+  })
+
+  test("formats project tags", () => {
+    expect(projectTag({ worktree: "/tmp/opencode" })).toBe("open")
+    expect(projectTag({ worktree: "/tmp/opencode", tag: " 🚀 api " })).toBe("🚀 api")
+    expect(projectTag({ worktree: "/tmp/👨‍👩‍👧‍👦abcde" })).toBe("👨‍👩‍👧‍👦abc")
+    expect(projectTag({ worktree: "/tmp/éclair" })).toBe("écla")
   })
 
   test("scopes home project selection by server", () => {

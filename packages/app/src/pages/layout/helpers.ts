@@ -49,6 +49,31 @@ export const childSessionOnPath = (sessions: Session[] | undefined, rootID: stri
 export const displayName = (project: { name?: string; worktree: string }) =>
   project.name || getFilename(project.worktree) || project.worktree
 
+const segmenter =
+  typeof Intl !== "undefined" && "Segmenter" in Intl
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : undefined
+
+export function projectTag(project: { tag?: string; worktree: string }) {
+  const tag = project.tag?.trim()
+  if (tag) return tag
+  const folder = getFilename(project.worktree) || project.worktree
+  if (!segmenter) return Array.from(folder).slice(0, 4).join("")
+  return Array.from(segmenter.segment(folder), (part) => part.segment)
+    .slice(0, 4)
+    .join("")
+}
+
+export function projectForDirectory<T extends { worktree: string; sandboxes?: string[] }>(
+  directory: string,
+  projects: T[],
+) {
+  const key = pathKey(directory)
+  return projects.find(
+    (project) => pathKey(project.worktree) === key || project.sandboxes?.some((sandbox) => pathKey(sandbox) === key),
+  )
+}
+
 export function toggleHomeProjectSelection(
   current: HomeProjectSelection | undefined,
   server: ServerConnection.Key,
@@ -100,11 +125,7 @@ export function projectForSession<T extends { id?: string; worktree: string; san
 ) {
   const direct = byID.get(session.projectID)
   if (direct) return direct
-  const directory = pathKey(session.directory)
-  return projects.find(
-    (project) =>
-      pathKey(project.worktree) === directory || project.sandboxes?.some((sandbox) => pathKey(sandbox) === directory),
-  )
+  return projectForDirectory(session.directory, projects)
 }
 
 export const errorMessage = (err: unknown, fallback: string) => {

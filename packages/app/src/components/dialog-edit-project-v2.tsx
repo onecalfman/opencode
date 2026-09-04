@@ -37,6 +37,19 @@ export function DialogEditProjectV2(props: { project: LocalProject; server: Serv
             />
           </Field>
 
+          <Field>
+            <Field.Label>
+              <span aria-hidden="true">#</span> {language.t("settings.providers.tag.custom")}
+            </Field.Label>
+            <TextInputV2
+              appearance="large"
+              class="!w-full"
+              value={model.store.tag}
+              placeholder={model.defaultTag()}
+              onInput={(event) => model.setStore("tag", event.currentTarget.value)}
+            />
+          </Field>
+
           <div class="flex w-full flex-col gap-2">
             <div class="select-none text-[13px] font-[530] leading-none tracking-[-0.04px] text-v2-text-text-base">
               {language.t("dialog.project.edit.icon")}
