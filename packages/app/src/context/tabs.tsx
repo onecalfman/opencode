@@ -33,6 +33,7 @@ export type Tab = SessionTab | DraftTab
 export type TabInfo = {
   title?: string
   directory?: string
+  projectID?: string
 }
 
 type RecentTab = {
@@ -349,9 +350,14 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       },
       rememberSessionInfo(tab: SessionTab, session: Session) {
         const key = tabKey(tab)
-        const next = { title: session.title, directory: session.directory }
+        const next = { title: session.title, directory: session.directory, projectID: session.projectID }
         const current = info[key]
-        if (current?.title === next.title && current.directory === next.directory) return
+        if (
+          current?.title === next.title &&
+          current.directory === next.directory &&
+          current.projectID === next.projectID
+        )
+          return
         setInfo(key, next)
       },
       select: navigateTab,
