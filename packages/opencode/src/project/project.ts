@@ -46,6 +46,7 @@ export function fromRow(row: Row): Info {
     worktree: row.worktree,
     vcs: row.vcs ? Schema.decodeUnknownSync(Project.Vcs)(row.vcs) : undefined,
     name: row.name ?? undefined,
+    tag: row.tag ?? undefined,
     icon,
     time: {
       created: row.time_created,
@@ -60,6 +61,7 @@ export function fromRow(row: Row): Info {
 export const UpdateInput = Schema.Struct({
   projectID: ProjectV2.ID,
   name: Schema.optional(Schema.String),
+  tag: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
   commands: Schema.optional(Project.Commands),
 })
@@ -67,6 +69,7 @@ export type UpdateInput = Types.DeepMutable<Schema.Schema.Type<typeof UpdateInpu
 
 export const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
+  tag: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
   commands: Schema.optional(Project.Commands),
 }).annotate({ identifier: "ProjectUpdateInput" })
@@ -261,6 +264,7 @@ const layer = Layer.effect(
           worktree: AbsolutePath.make(result.worktree),
           vcs: result.vcs ?? null,
           name: result.name,
+          tag: result.tag,
           icon_url: result.icon?.url,
           icon_url_override: result.icon?.override,
           icon_color: result.icon?.color,
@@ -276,6 +280,7 @@ const layer = Layer.effect(
             worktree: AbsolutePath.make(result.worktree),
             vcs: result.vcs ?? null,
             name: result.name,
+            tag: result.tag,
             icon_url: result.icon?.url,
             icon_url_override: result.icon?.override,
             icon_color: result.icon?.color,
@@ -347,6 +352,7 @@ const layer = Layer.effect(
         .update(ProjectTable)
         .set({
           name: input.name,
+          tag: input.tag,
           icon_url: input.icon?.url,
           icon_url_override: input.icon?.override,
           icon_color: input.icon?.color,

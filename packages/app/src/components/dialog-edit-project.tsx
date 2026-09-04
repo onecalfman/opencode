@@ -29,6 +29,14 @@ export function DialogEditProject(props: { project: LocalProject; server: Server
             onChange={(v) => model.setStore("name", v)}
           />
 
+          <TextField
+            type="text"
+            label={`# ${language.t("settings.providers.tag.custom")}`}
+            placeholder={model.defaultTag()}
+            value={model.store.tag}
+            onChange={(v) => model.setStore("tag", v)}
+          />
+
           <div class="flex flex-col gap-2">
             <label class="text-12-medium text-text-weak">{language.t("dialog.project.edit.icon")}</label>
             <div class="flex gap-3 items-start">

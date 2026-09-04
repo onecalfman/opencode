@@ -178,13 +178,14 @@ const scenarios: Scenario[] = [
     .at((ctx) => ({
       path: route("/project/{projectID}", { projectID: ctx.state.id }),
       headers: ctx.headers(),
-      body: { name: "HTTP API Project", commands: { start: "bun --version" } },
+      body: { name: "HTTP API Project", tag: "api🚀", commands: { start: "bun --version" } },
     }))
     .json(
       200,
       (body) => {
         object(body)
         check(body.name === "HTTP API Project", "project update should return patched name")
+        check(body.tag === "api🚀", "project update should return patched tag")
         check(
           isRecord(body.commands) && body.commands.start === "bun --version",
           "project update should return patched command",

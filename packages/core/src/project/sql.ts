@@ -8,6 +8,7 @@ export const ProjectTable = sqliteTable("project", {
   worktree: DatabasePath.absoluteColumn().notNull(),
   vcs: text(),
   name: text(),
+  tag: text(),
   icon_url: text(),
   icon_url_override: text(),
   icon_color: text(),

@@ -20,6 +20,7 @@ import { canStartTabDrag, isTabCloseTarget } from "./titlebar-tab-gesture"
 import { mergeVisibleTabOrder } from "./titlebar-tab-order"
 import { groupTabsByServer } from "./titlebar-tab-group"
 import type { Session } from "@opencode-ai/sdk/v2"
+import { projectForDirectory, projectTag } from "@/pages/layout/helpers"
 
 export type TabOrientation = "horizontal" | "vertical"
 
@@ -31,6 +32,7 @@ function SessionTabSlot(props: {
   forceTruncate: boolean
   session: () => Session | undefined
   fallbackTitle?: string
+  fallbackDirectory?: string
   onRename: (title: string) => Promise<void>
   onNavigate: (element: HTMLDivElement) => void
   onClose: () => void
@@ -65,6 +67,7 @@ function SessionTabSlot(props: {
         server={props.tab.server}
         session={props.session}
         fallbackTitle={props.fallbackTitle}
+        fallbackDirectory={props.fallbackDirectory}
         onRename={props.onRename}
         onNavigate={() => props.onNavigate(ref)}
         onClose={props.onClose}
@@ -166,6 +169,7 @@ function SessionTabEntry(props: {
         forceTruncate={props.forceTruncate}
         session={session}
         fallbackTitle={persisted()?.title ?? (missingSession() ? language.t("session.tab.unknown") : undefined)}
+        fallbackDirectory={persisted()?.directory}
         onRename={rename}
         onNavigate={props.onNavigate}
         onClose={props.onClose}
@@ -181,6 +185,7 @@ function DraftTabSlot(props: {
   index: () => number
   active: () => boolean
   title: string
+  tag: string
   onNavigate: (element: HTMLDivElement) => void
   onClose: () => void
   group?: string
@@ -212,6 +217,7 @@ function DraftTabSlot(props: {
         }}
         href={tabHref(props.tab)}
         title={props.title}
+        tag={props.tag}
         onNavigate={() => props.onNavigate(ref)}
         onClose={props.onClose}
         active={props.active()}
@@ -297,7 +303,6 @@ export function TitlebarTabStrip(props: {
             .findIndex((item) => tabKey(item) === id)
         : visibleIndex()
     const serverCtx = createMemo(() => {
-      if (tab.type !== "session") return
       const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
       if (conn) return global.ensureServerCtx(conn)
     })
@@ -329,6 +334,10 @@ export function TitlebarTabStrip(props: {
         index={sortableIndex}
         active={() => props.currentTab() === tab}
         title={language.t("command.session.new")}
+        tag={projectTag(
+          projectForDirectory(tab.directory, serverCtx()?.projects.list() ?? []) ??
+            projectForDirectory(tab.directory, serverCtx()?.sync.data.project ?? []) ?? { worktree: tab.directory },
+        )}
         onNavigate={(element) => {
           ref = element
           props.onNavigate(tab, element)

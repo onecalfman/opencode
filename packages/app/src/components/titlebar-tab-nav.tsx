@@ -9,7 +9,7 @@ import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { useGlobal } from "@/context/global"
 import { useLanguage } from "@/context/language"
 import { ServerConnection, serverName } from "@/context/server"
-import { displayName, projectForSession } from "@/pages/layout/helpers"
+import { displayName, projectForDirectory, projectForSession, projectTag } from "@/pages/layout/helpers"
 import { SessionTabAvatar } from "@/pages/layout/session-tab-avatar"
 import type { Session } from "@opencode-ai/sdk/v2"
 import { canOpenTabRename, forwardTabRef } from "./titlebar-tab-gesture"
@@ -25,6 +25,7 @@ export function TabNavItem(props: {
   server: ServerConnection.Key
   session: () => Session | undefined
   fallbackTitle?: string
+  fallbackDirectory?: string
   onRename: (title: string) => Promise<void>
   onClose: () => void
   onNavigate: () => void
@@ -56,10 +57,24 @@ export function TabNavItem(props: {
   })
   const project = createMemo(() => {
     const session = props.session()
-    if (!session) return
-    return projectForSession(session, serverCtx()?.projects.list() ?? [])
+    const directory = session?.directory ?? props.fallbackDirectory
+    if (!directory) return
+    const ctx = serverCtx()
+    const local = session
+      ? projectForSession(session, ctx?.projects.list() ?? [])
+      : projectForDirectory(directory, ctx?.projects.list() ?? [])
+    if (local) return local
+    const persisted = session
+      ? projectForSession(session, ctx?.sync.data.project ?? [])
+      : projectForDirectory(directory, ctx?.sync.data.project ?? [])
+    if (persisted) return { ...persisted, expanded: false }
   })
   const title = createMemo(() => props.session()?.title ?? props.fallbackTitle)
+  const tag = createMemo(() => {
+    const directory = props.session()?.directory ?? props.fallbackDirectory
+    if (!directory) return
+    return projectTag(project() ?? { worktree: directory })
+  })
 
   const projectName = createMemo(() => {
     const session = props.session()
@@ -248,6 +263,19 @@ export function TabNavItem(props: {
             )}
           </Show>
         </span>
+        <Show when={tag()}>
+          {(value) => (
+            <bdi
+              data-slot="project-tag"
+              data-project-tag
+              dir="auto"
+              title={value()}
+              class="max-w-14 shrink-0 overflow-hidden text-ellipsis rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-[600] leading-4 text-v2-text-text-muted group-data-[active='true']:text-v2-text-text-base"
+            >
+              {value()}
+            </bdi>
+          )}
+        </Show>
         <span
           ref={(el) => {
             titleEl = el
@@ -347,6 +375,7 @@ export function DraftTabItem(props: {
   ref?: Ref<HTMLDivElement>
   href: string
   title: string
+  tag: string
   active?: boolean
   onNavigate: () => void
   onClose: () => void
@@ -408,6 +437,15 @@ export function DraftTabItem(props: {
         <span class="flex size-4 shrink-0 items-center justify-center">
           <IconV2 name="edit" />
         </span>
+        <bdi
+          data-slot="project-tag"
+          data-project-tag
+          dir="auto"
+          title={props.tag}
+          class="max-w-14 shrink-0 overflow-hidden text-ellipsis rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-[600] leading-4 text-v2-text-text-muted group-data-[active='true']:text-v2-text-text-base"
+        >
+          {props.tag}
+        </bdi>
         <span
           data-titlebar-tab-title
           class="min-w-0 flex-1 overflow-hidden text-clip whitespace-nowrap outline-none leading-4"

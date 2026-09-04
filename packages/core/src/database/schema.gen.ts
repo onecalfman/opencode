@@ -114,6 +114,7 @@ export default {
           \`worktree\` text NOT NULL,
           \`vcs\` text,
           \`name\` text,
+          \`tag\` text,
           \`icon_url\` text,
           \`icon_url_override\` text,
           \`icon_color\` text,

@@ -1484,6 +1484,7 @@ export type GlobalEvent = {
           worktree: string
           vcs?: ProjectVcs
           name?: string
+          tag?: string
           icon?: ProjectIcon
           commands?: ProjectCommands
           time: ProjectTime
@@ -2429,6 +2430,7 @@ export type Project = {
   worktree: string
   vcs?: ProjectVcs
   name?: string
+  tag?: string
   icon?: ProjectIcon
   commands?: ProjectCommands
   time: ProjectTime
@@ -5906,6 +5908,7 @@ export type ProjectUpdated = {
     worktree: string
     vcs?: ProjectVcs
     name?: string
+    tag?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
     time: ProjectTime
@@ -6924,6 +6927,7 @@ export type EventProjectUpdated = {
     worktree: string
     vcs?: ProjectVcs
     name?: string
+    tag?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
     time: ProjectTime
@@ -8792,6 +8796,7 @@ export type ProjectInitGitResponse = ProjectInitGitResponses[keyof ProjectInitGi
 export type ProjectUpdateData = {
   body?: {
     name?: string
+    tag?: string
     icon?: ProjectIcon
     commands?: ProjectCommands
   }
