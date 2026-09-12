@@ -1,5 +1,6 @@
-import { Component, createMemo, createSignal, startTransition } from "solid-js"
-import { Dialog } from "@opencode-ai/ui/v2/dialog-v2"
+import { Component, Show, createMemo, createSignal, startTransition } from "solid-js"
+import { createMediaQuery } from "@solid-primitives/media"
+import { Dialog, DialogHeader, DialogTitle } from "@opencode-ai/ui/v2/dialog-v2"
 import { TabsV2 } from "@opencode-ai/ui/v2/tabs-v2"
 import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
@@ -25,6 +26,7 @@ export const DialogSettings: Component<{
   const layout = useLayout()
   const tabs = useTabs()
   const serverSync = useServerSync()
+  const mobile = createMediaQuery("(max-width: 767px)")
   const [tab, setTab] = createSignal(props.defaultValue ?? "general")
   const directory = createMemo(() => {
     const route = layout.route()
@@ -43,20 +45,31 @@ export const DialogSettings: Component<{
 
   return (
     <Dialog size="x-large" variant="settings" class="settings-v2-dialog">
+      <Show when={mobile()}>
+        <DialogHeader>
+          <DialogTitle>{language.t("command.category.settings")}</DialogTitle>
+        </DialogHeader>
+      </Show>
       <TabsV2
-        orientation="vertical"
+        orientation={mobile() ? "horizontal" : "vertical"}
         variant="settings"
         value={tab()}
         onChange={(value) => void startTransition(() => setTab(value))}
         class="settings-v2"
       >
-        <TabsV2.List>
-          <div class="flex flex-col justify-between h-full w-full">
-            <div class="flex flex-col gap-3 w-full">
-              <div class="flex flex-col gap-3">
-                <div class="flex flex-col gap-1.5">
+        <TabsV2.List
+          aria-label={language.t("command.category.settings")}
+          onFocusIn={(event) => {
+            if (!mobile() || !(event.target instanceof HTMLElement)) return
+            event.target.scrollIntoView({ block: "nearest", inline: "nearest" })
+          }}
+        >
+          <div class="settings-v2-nav-group flex flex-col justify-between h-full w-full">
+            <div class="settings-v2-nav-group flex flex-col gap-3 w-full">
+              <div class="settings-v2-nav-group flex flex-col gap-3">
+                <div class="settings-v2-nav-group flex flex-col gap-1.5">
                   <TabsV2.SectionTitle>{language.t("settings.section.desktop")}</TabsV2.SectionTitle>
-                  <div class="flex flex-col gap-1.5 w-full">
+                  <div class="settings-v2-nav-group flex flex-col gap-1.5 w-full">
                     <TabsV2.Trigger value="general">
                       <Icon name="sliders" />
                       {language.t("settings.tab.general")}
@@ -68,9 +81,9 @@ export const DialogSettings: Component<{
                   </div>
                 </div>
 
-                <div class="flex flex-col gap-1.5">
+                <div class="settings-v2-nav-group flex flex-col gap-1.5">
                   <TabsV2.SectionTitle>{language.t("settings.section.server")}</TabsV2.SectionTitle>
-                  <div class="flex flex-col gap-1.5 w-full">
+                  <div class="settings-v2-nav-group flex flex-col gap-1.5 w-full">
                     <TabsV2.Trigger value="servers">
                       <Icon name="server" />
                       {language.t("status.popover.tab.servers")}
