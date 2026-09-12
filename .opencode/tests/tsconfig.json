@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["bun"],
+    "typeRoots": ["../../packages/app/node_modules/@types"],
+    "lib": ["ESNext", "DOM"]
+  },
+  "include": ["google-chat.test.ts", "../plugins/google-chat.ts"]
+}
