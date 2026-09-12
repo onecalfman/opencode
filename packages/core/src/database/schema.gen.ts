@@ -98,6 +98,14 @@ export default {
         );
       `)
       yield* tx.run(`
+        CREATE TABLE \`ui_profile\` (
+          \`id\` integer PRIMARY KEY,
+          \`revision\` integer NOT NULL,
+          \`document\` text NOT NULL,
+          CONSTRAINT "ui_profile_singleton" CHECK("id" = 1)
+        );
+      `)
+      yield* tx.run(`
         CREATE TABLE \`project_directory\` (
           \`project_id\` text NOT NULL,
           \`directory\` text NOT NULL,

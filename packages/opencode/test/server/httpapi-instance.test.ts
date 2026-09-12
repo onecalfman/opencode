@@ -9,6 +9,7 @@ import { WorkspaceV2 } from "@opencode-ai/core/workspace"
 import { ControlPaths } from "../../src/server/routes/instance/httpapi/groups/control"
 import { InstancePaths } from "../../src/server/routes/instance/httpapi/groups/instance"
 import { SessionPaths } from "../../src/server/routes/instance/httpapi/groups/session"
+import { Profile } from "@opencode-ai/schema/profile"
 import { ProjectV2 } from "@opencode-ai/core/project"
 import { QuestionID } from "../../src/question/schema"
 import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
@@ -56,6 +57,65 @@ const handlerContext = Context.empty() as Context.Context<unknown>
 const directoryHeader = (dir: string) => HttpClientRequest.setHeader("x-opencode-directory", dir)
 
 describe("instance HttpApi", () => {
+  it.live("serves the machine-global profile with CAS conflict responses", () =>
+    Effect.gen(function* () {
+      const request = (init?: RequestInit) =>
+        Effect.promise(() =>
+          HttpApiApp.webHandler().handler(new Request("http://localhost/api/profile", init), handlerContext),
+        )
+      const initial = yield* request()
+      const replaced = yield* request({
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          revision: 0,
+          profile: {
+            version: 1,
+            servers: [
+              {
+                url: "https://opencode.example.com",
+                projects: [{ worktree: "/workspace" }],
+                openSessionIDs: ["ses_one", "ses_two"],
+              },
+            ],
+          },
+        }),
+      })
+      const conflict = yield* request({
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ revision: 0, profile: { version: 1, servers: [] } } satisfies Profile.ReplaceInput),
+      })
+
+      expect(initial.status).toBe(200)
+      expect(yield* Effect.promise(() => initial.json())).toEqual({
+        revision: 0,
+        profile: { version: 1, servers: [] },
+      })
+      expect(replaced.status).toBe(200)
+      expect(yield* Effect.promise(() => replaced.json())).toEqual({
+        revision: 1,
+        profile: {
+          version: 1,
+          servers: [
+            {
+              url: "https://opencode.example.com/",
+              projects: [{ worktree: "/workspace" }],
+              openSessionIDs: ["ses_one", "ses_two"],
+            },
+          ],
+        },
+      })
+      expect(conflict.status).toBe(409)
+      expect(yield* Effect.promise(() => conflict.json())).toEqual({
+        _tag: "RevisionConflict",
+        message: "UI profile revision conflict",
+        expectedRevision: 0,
+        actualRevision: 1,
+      })
+    }),
+  )
+
   it.live("serves the OpenAPI document", () =>
     Effect.gen(function* () {
       const response = yield* HttpClient.get("/doc")

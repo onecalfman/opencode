@@ -59,6 +59,51 @@ describe("resolveServerList", () => {
     })
     expect(list[0]?.type === "http" ? list[0].authToken : true).toBeUndefined()
   })
+
+  test("merges canonically equivalent stored credentials without changing the startup URL", () => {
+    const list = resolveServerList({
+      stored: [{ url: "https://server.example.test/", username: "opencode", password: "saved" }],
+      props: [{ type: "http", http: { url: "HTTPS://SERVER.EXAMPLE.TEST:443" } }],
+    })
+
+    expect(list).toEqual([
+      {
+        type: "http",
+        http: {
+          url: "HTTPS://SERVER.EXAMPLE.TEST:443",
+          username: "opencode",
+          password: "saved",
+        },
+      },
+    ])
+  })
+
+  test("merges device-local fields across canonically equivalent stored overlays", () => {
+    const list = resolveServerList({
+      stored: [
+        { url: "https://server.example.test", username: "opencode" },
+        {
+          type: "http",
+          displayName: "Work",
+          label: "device",
+          http: { url: "https://server.example.test/", password: "saved" },
+        },
+      ],
+    })
+
+    expect(list).toEqual([
+      {
+        type: "http",
+        displayName: "Work",
+        label: "device",
+        http: {
+          url: "https://server.example.test",
+          username: "opencode",
+          password: "saved",
+        },
+      },
+    ])
+  })
 })
 
 test("treats WSL sidecars as remote server connections", () => {
@@ -194,6 +239,40 @@ describe("createServerProjects", () => {
       projects.close("/repo")
       projects.close("/repo/")
       expect(projects.recentlyClosed()).toEqual(["/repo/"])
+      dispose()
+    })
+  })
+
+  test("reports only portable project semantics through the shared callback", () => {
+    createRoot((dispose) => {
+      const [scope] = createSignal(ServerScope.local)
+      const [store, setStore] = createStore({ projects: {}, lastProject: {}, recentlyClosed: {} })
+      const changes: Array<{ type: string; scope: ServerScope; worktree: string; toIndex?: number }> = []
+      const projects = createServerProjects({
+        scope,
+        store,
+        setStore,
+        onChange: (change) => changes.push(change),
+      })
+
+      projects.open("/a")
+      projects.open("/b")
+      projects.collapse("/a")
+      projects.expand("/a")
+      projects.touch("/a")
+      projects.move("/a", 0)
+      projects.close("/b")
+      projects.open("/c")
+      projects.remove("/c")
+
+      expect(changes).toEqual([
+        { type: "project.open", scope: ServerScope.local, worktree: "/a" },
+        { type: "project.open", scope: ServerScope.local, worktree: "/b" },
+        { type: "project.move", scope: ServerScope.local, worktree: "/a", toIndex: 0 },
+        { type: "project.remove", scope: ServerScope.local, worktree: "/b" },
+        { type: "project.open", scope: ServerScope.local, worktree: "/c" },
+        { type: "project.remove", scope: ServerScope.local, worktree: "/c" },
+      ])
       dispose()
     })
   })

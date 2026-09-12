@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "9113b262-f6d7-4b28-896f-71c715532ee2",
+  "id": "5daa1b02-153c-4453-ba63-69480a820cd0",
   "prevIds": [
-    "f14a9b18-8207-487e-a3d3-227e629ba9ad"
+    "9113b262-f6d7-4b28-896f-71c715532ee2"
   ],
   "ddl": [
     {
@@ -40,6 +40,10 @@
     },
     {
       "name": "permission",
+      "entityType": "tables"
+    },
+    {
+      "name": "ui_profile",
       "entityType": "tables"
     },
     {
@@ -601,6 +605,36 @@
       "name": "time_updated",
       "entityType": "columns",
       "table": "permission"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "ui_profile"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "revision",
+      "entityType": "columns",
+      "table": "ui_profile"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "document",
+      "entityType": "columns",
+      "table": "ui_profile"
     },
     {
       "type": "text",
@@ -1794,6 +1828,15 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "ui_profile_pk",
+      "table": "ui_profile",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "project_pk",
       "table": "project",
       "entityType": "pks"
@@ -2170,6 +2213,12 @@
       "name": "todo_session_idx",
       "entityType": "indexes",
       "table": "todo"
+    },
+    {
+      "value": "\"id\" = 1",
+      "name": "ui_profile_singleton",
+      "entityType": "checks",
+      "table": "ui_profile"
     }
   ],
   "renames": []

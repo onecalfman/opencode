@@ -112,6 +112,9 @@ import type {
   ProjectCopiesRemoveOutput,
   ProjectCopiesRefreshInput,
   ProjectCopiesRefreshOutput,
+  ProfileGetOutput,
+  ProfileReplaceInput,
+  ProfileReplaceOutput,
 } from "./types"
 import { ClientError } from "./client-error"
 
@@ -983,6 +986,25 @@ export function make(options: ClientOptions) {
             successStatus: 204,
             declaredStatuses: [400, 401],
             empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    profile: {
+      get: (requestOptions?: RequestOptions) =>
+        request<ProfileGetOutput>(
+          { method: "GET", path: `/api/profile`, successStatus: 200, declaredStatuses: [401, 400], empty: false },
+          requestOptions,
+        ),
+      replace: (input: ProfileReplaceInput, requestOptions?: RequestOptions) =>
+        request<ProfileReplaceOutput>(
+          {
+            method: "PUT",
+            path: `/api/profile`,
+            body: { revision: input["revision"], profile: input["profile"] },
+            successStatus: 200,
+            declaredStatuses: [409, 401, 400],
+            empty: false,
           },
           requestOptions,
         ),

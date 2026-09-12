@@ -200,6 +200,7 @@ describe("HttpApi UI fallback", () => {
 
       expect(response.status).toBe(200)
       expect(response.headers.get("content-type")).toContain("text/html")
+      expect(response.headers.get("cache-control")).toBe("no-cache")
       expect(yield* responseText(response)).toBe("<html>opencode</html>")
       expect(proxiedUrl).toBe("https://app.opencode.ai/")
     }),
@@ -353,6 +354,7 @@ describe("HttpApi UI fallback", () => {
       expect(csp).toContain(`'sha256-${createHash("sha256").update(script).digest("base64")}'`)
       expect(csp).toContain("img-src 'self' data: https: blob:")
       expect(csp).toContain("connect-src * data: blob:")
+      expect(response.headers.get("cache-control")).toBe("no-cache")
     }),
   )
 

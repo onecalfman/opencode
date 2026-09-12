@@ -14,6 +14,7 @@ import { ModelsDev } from "./models-dev"
 import { Permission } from "./permission"
 import { PermissionV1 } from "./permission-v1"
 import { Plugin } from "./plugin"
+import { Profile } from "./profile"
 import { Project } from "./project"
 import { ProjectDirectories } from "./project-directories"
 import { Pty } from "./pty"
@@ -52,6 +53,7 @@ const featureDefinitions = Event.inventory(
   ...FileSystemWatcher.Event.Definitions,
   ...Pty.Event.Definitions,
   ...Question.Event.Definitions,
+  ...Profile.Event.Definitions,
 )
 
 export const ServerDefinitions = Event.inventory(

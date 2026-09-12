@@ -3,16 +3,23 @@ import { createSimpleContext } from "@opencode-ai/ui/context"
 import { createStore, produce } from "solid-js/store"
 import { Persist, persisted, removePersisted, draftPersistedKeys } from "@/utils/persist"
 import { ServerConnection, useServer } from "./server"
-import { createEffect, getOwner, onCleanup, startTransition } from "solid-js"
+import { batch, createEffect, getOwner, onCleanup, startTransition } from "solid-js"
 import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { usePlatform } from "./platform"
 import { uuid } from "@/utils/uuid"
 import { SessionTabsRemovedDetail } from "@/components/titlebar-session-events"
-import { sessionHref } from "@/utils/session-route"
+import { requireServerKey, sessionHref } from "@/utils/session-route"
 import { createTabMemory } from "./tab-memory"
 import { nextTabAfterClose, pushClosedTab, removeClosedTabs, takeClosedTab, type ClosedTab } from "./closed-tabs"
 import { createDraftPromptSession, type PromptModel } from "./prompt-state"
 import { migrateTabs } from "./tab-migration"
+import {
+  profileSessionIDs,
+  profileSessionTarget,
+  profileServersEqual,
+  reconcileProfileSessionTabs,
+} from "./tab-profile"
+import { portableServerUrl } from "./server-profile"
 
 export type SessionTab = {
   type: "session"
@@ -117,21 +124,107 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       )
     }
 
+    const unregisterSessionProfile = server.profile.sessions.register({
+      ready,
+      read: (target) => profileSessionIDs(store, target),
+      apply: (targets) => {
+        const next = reconcileProfileSessionTabs(store, targets)
+        if (
+          next.length === store.length &&
+          next.every((tab, index) => {
+            const current = store[index]
+            return current ? tabKey(tab) === tabKey(current) : false
+          })
+        )
+          return
+        const nextKeys = new Set(next.map(tabKey))
+        const migrations = store.flatMap((tab) => {
+          if (tab.type !== "session") return []
+          const target = profileSessionTarget(tab.server, targets)
+          if (!target || target.key === tab.server) return []
+          const migrated = { ...tab, server: target.key }
+          if (!nextKeys.has(tabKey(migrated))) return []
+          return [{ from: tab, to: migrated }]
+        })
+        const migrated = new Set(migrations.map((item) => tabKey(item.from)))
+        const removedTabs = store.filter((tab) => !nextKeys.has(tabKey(tab)) && !migrated.has(tabKey(tab)))
+        const removed = removedTabs.map(tabKey)
+        const routeServer = params.serverKey ? requireServerKey(params.serverKey) : server.key
+        const routeTarget = profileSessionTarget(routeServer, targets)
+        const routeMigration = migrations.find(
+          (item) => profileServersEqual(item.from.server, routeServer) && item.from.sessionId === params.id,
+        )
+        const removeActive =
+          params.id &&
+          routeTarget &&
+          removedTabs.some(
+            (tab) =>
+              tab.type === "session" &&
+              tab.sessionId === params.id &&
+              profileSessionIDs([tab], routeTarget).length > 0,
+          )
+        for (const item of migrations) {
+          const from = tabKey(item.from)
+          const to = tabKey(item.to)
+          memory.move(from, to)
+          const value = info[from]
+          if (value && !info[to]) setInfo(to, value)
+          removeInfo(from)
+          if (recent.key === from) setRecentKey(to)
+        }
+        batch(() => {
+          if (routeMigration)
+            navigate(sessionHref(routeMigration.to.server, routeMigration.to.sessionId), { replace: true })
+          if (removeActive) navigate("/")
+          setStore(() => next)
+        })
+        for (const item of removed) memory.remove(item)
+        for (const item of removed) removeInfo(item)
+        if (recent.key && removed.includes(recent.key)) setRecentKey(undefined)
+      },
+    })
+
     onCleanup(memory.dispose)
+    onCleanup(unregisterSessionProfile)
+
+    createEffect(() => {
+      if (!ready()) return
+      server.profile.sessions.changed()
+    })
 
     createEffect(() => {
       if (!ready() || !recentReady()) return
       const servers = new Set(server.list.map(ServerConnection.key))
-      const next = store.filter((tab) => servers.has(tab.server))
+      const portable = new Set(
+        server.list.flatMap((connection) => {
+          const url = portableServerUrl(connection)
+          return url ? [url] : []
+        }),
+      )
+      const next = store.filter((tab) => {
+        if (servers.has(tab.server)) return true
+        const url = portableServerUrl({ type: "http", http: { url: tab.server } })
+        return !!url && portable.has(url)
+      })
       if (next.length !== store.length) {
-        for (const tab of store) {
-          if (!servers.has(tab.server)) {
-            const key = tabKey(tab)
-            memory.remove(key)
-            removeInfo(key)
-          }
-        }
-        setStore(() => next)
+        const keys = new Set(next.map(tabKey))
+        const removedTabs = store.filter((tab) => !keys.has(tabKey(tab)))
+        const removed = removedTabs.map(tabKey)
+        const routeServer = params.serverKey ? requireServerKey(params.serverKey) : server.key
+        const removeActive =
+          params.id &&
+          removedTabs.some(
+            (tab) =>
+              tab.type === "session" &&
+              tab.sessionId === params.id &&
+              profileServersEqual(tab.server, routeServer),
+          )
+        batch(() => {
+          if (removeActive) navigate("/")
+          setStore(() => next)
+        })
+        for (const key of removed) memory.remove(key)
+        for (const key of removed) removeInfo(key)
       }
       if (recent.key && !next.some((tab) => tabKey(tab) === recent.key)) setRecentKey(undefined)
       const keys = new Set(next.map(tabKey))

@@ -681,6 +681,21 @@ const adaptGroup17 = (raw: RawClient["server.projectCopy"]) => ({
   refresh: Endpoint17_2(raw),
 })
 
+const Endpoint18_0 = (raw: RawClient["server.profile"]) => () =>
+  raw["profile.get"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_1Request = Parameters<RawClient["server.profile"]["profile.replace"]>[0]
+type Endpoint18_1Input = {
+  readonly revision: Endpoint18_1Request["payload"]["revision"]
+  readonly profile: Endpoint18_1Request["payload"]["profile"]
+}
+const Endpoint18_1 = (raw: RawClient["server.profile"]) => (input: Endpoint18_1Input) =>
+  raw["profile.replace"]({ payload: { revision: input["revision"], profile: input["profile"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+const adaptGroup18 = (raw: RawClient["server.profile"]) => ({ get: Endpoint18_0(raw), replace: Endpoint18_1(raw) })
+
 const adaptClient = (raw: RawClient) => ({
   health: adaptGroup0(raw["server.health"]),
   location: adaptGroup1(raw["server.location"]),
@@ -700,6 +715,7 @@ const adaptClient = (raw: RawClient) => ({
   questions: adaptGroup15(raw["server.question"]),
   references: adaptGroup16(raw["server.reference"]),
   projectCopies: adaptGroup17(raw["server.projectCopy"]),
+  profile: adaptGroup18(raw["server.profile"]),
 })
 
 export const make = (options?: { readonly baseUrl?: URL | string }) =>

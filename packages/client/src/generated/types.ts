@@ -101,6 +101,15 @@ export type ProjectCopyError = {
 export const isProjectCopyError = (value: unknown): value is ProjectCopyError =>
   typeof value === "object" && value !== null && "name" in value && value["name"] === "ProjectCopyError"
 
+export type RevisionConflict = {
+  readonly _tag: "RevisionConflict"
+  readonly message: string
+  readonly expectedRevision: number
+  readonly actualRevision: number
+}
+export const isRevisionConflict = (value: unknown): value is RevisionConflict =>
+  typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "RevisionConflict"
+
 export type HealthGetOutput = { readonly healthy: true }
 
 export type LocationGetInput = {
@@ -2805,3 +2814,56 @@ export type ProjectCopiesRefreshInput = {
 }
 
 export type ProjectCopiesRefreshOutput = void
+
+export type ProfileGetOutput = {
+  readonly revision: number
+  readonly profile: {
+    readonly version: 1
+    readonly servers: ReadonlyArray<{
+      readonly url: string
+      readonly name?: string
+      readonly projects: ReadonlyArray<{ readonly worktree: string }>
+      readonly openSessionIDs?: ReadonlyArray<string>
+    }>
+  }
+}
+
+export type ProfileReplaceInput = {
+  readonly revision: {
+    readonly revision: number
+    readonly profile: {
+      readonly version: 1
+      readonly servers: ReadonlyArray<{
+        readonly url: string
+        readonly name?: string
+        readonly projects: ReadonlyArray<{ readonly worktree: string }>
+        readonly openSessionIDs?: ReadonlyArray<string>
+      }>
+    }
+  }["revision"]
+  readonly profile: {
+    readonly revision: number
+    readonly profile: {
+      readonly version: 1
+      readonly servers: ReadonlyArray<{
+        readonly url: string
+        readonly name?: string
+        readonly projects: ReadonlyArray<{ readonly worktree: string }>
+        readonly openSessionIDs?: ReadonlyArray<string>
+      }>
+    }
+  }["profile"]
+}
+
+export type ProfileReplaceOutput = {
+  readonly revision: number
+  readonly profile: {
+    readonly version: 1
+    readonly servers: ReadonlyArray<{
+      readonly url: string
+      readonly name?: string
+      readonly projects: ReadonlyArray<{ readonly worktree: string }>
+      readonly openSessionIDs?: ReadonlyArray<string>
+    }>
+  }
+}
