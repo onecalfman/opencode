@@ -406,6 +406,9 @@ function DesktopRoot(props: { windowState: DesktopWindowState }) {
           {(key) => (
             <AppInterface
               defaultServer={key}
+              canonicalLocalServer={
+                servers().some(ServerConnection.builtin) ? ServerConnection.Key.make("sidecar") : undefined
+              }
               servers={servers()}
               router={router}
               startup={onboarding.promise}

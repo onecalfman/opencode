@@ -130,6 +130,7 @@ import type {
   PermissionRuleset,
   PermissionV2Reply,
   PermissionV2Source,
+  ProfileReplaceInput,
   ProjectCommands,
   ProjectCurrentErrors,
   ProjectCurrentResponses,
@@ -305,6 +306,10 @@ import type {
   V2PermissionSavedListResponses,
   V2PermissionSavedRemoveErrors,
   V2PermissionSavedRemoveResponses,
+  V2ProfileGetErrors,
+  V2ProfileGetResponses,
+  V2ProfileReplaceErrors,
+  V2ProfileReplaceResponses,
   V2ProjectCopyCreateErrors,
   V2ProjectCopyCreateResponses,
   V2ProjectCopyRefreshErrors,
@@ -6989,6 +6994,44 @@ export class ProjectCopy2 extends HeyApiClient {
   }
 }
 
+export class Profile extends HeyApiClient {
+  /**
+   * Get UI profile
+   *
+   * Get the machine-global synchronized UI profile. Uses the server's current single-user Basic Authentication when configured. Profile data never includes credentials.
+   */
+  public get<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<V2ProfileGetResponses, V2ProfileGetErrors, ThrowOnError>({
+      url: "/api/profile",
+      ...options,
+    })
+  }
+
+  /**
+   * Replace UI profile
+   *
+   * Atomically replace the machine-global UI profile when its revision matches. Uses the server's current single-user Basic Authentication when configured. Profile data never includes credentials.
+   */
+  public replace<ThrowOnError extends boolean = false>(
+    parameters: {
+      profileReplaceInput: ProfileReplaceInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ key: "profileReplaceInput", map: "body" }] }])
+    return (options?.client ?? this.client).put<V2ProfileReplaceResponses, V2ProfileReplaceErrors, ThrowOnError>({
+      url: "/api/profile",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class V2 extends HeyApiClient {
   private _health?: Health
   get health(): Health {
@@ -7073,6 +7116,11 @@ export class V2 extends HeyApiClient {
   private _projectCopy?: ProjectCopy2
   get projectCopy(): ProjectCopy2 {
     return (this._projectCopy ??= new ProjectCopy2({ client: this.client }))
+  }
+
+  private _profile?: Profile
+  get profile(): Profile {
+    return (this._profile ??= new Profile({ client: this.client }))
   }
 }
 

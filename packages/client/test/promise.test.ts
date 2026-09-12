@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { isSessionNotFoundError, isUnauthorizedError, OpenCode } from "../src"
+import { isRevisionConflict, isSessionNotFoundError, isUnauthorizedError, OpenCode } from "../src"
 
 test("exposes every standard HTTP API group", () => {
   const client = OpenCode.make({ baseUrl: "http://localhost:3000" })
@@ -23,8 +23,10 @@ test("exposes every standard HTTP API group", () => {
     "questions",
     "references",
     "projectCopies",
+    "profile",
   ])
   expect(Object.keys(client.messages)).toEqual(["list"])
+  expect(Object.keys(client.profile)).toEqual(["get", "replace"])
   expect(Object.keys(client.integrations)).toEqual([
     "list",
     "get",
@@ -36,6 +38,76 @@ test("exposes every standard HTTP API group", () => {
   ])
   expect(Object.keys(client.files)).toEqual(["list", "find"])
   expect(Object.keys(client.ptys)).toEqual(["list", "create", "get", "update", "remove"])
+})
+
+test("profile methods use the revisioned CAS contract", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = []
+  const client = OpenCode.make({
+    baseUrl: "http://localhost:3000",
+    fetch: async (input, init) => {
+      requests.push({ url: input.toString(), init })
+      if (init?.method === "PUT") {
+        return Response.json({
+          revision: 1,
+          profile: {
+            version: 1,
+            servers: [{ url: "https://opencode.example.com", projects: [{ worktree: "/workspace" }] }],
+          },
+        })
+      }
+      return Response.json({ revision: 0, profile: { version: 1, servers: [] } })
+    },
+  })
+
+  expect(await client.profile.get()).toEqual({ revision: 0, profile: { version: 1, servers: [] } })
+  expect(
+    await client.profile.replace({
+      revision: 0,
+      profile: {
+        version: 1,
+        servers: [{ url: "https://opencode.example.com", projects: [{ worktree: "/workspace" }] }],
+      },
+    }),
+  ).toEqual({
+    revision: 1,
+    profile: {
+      version: 1,
+      servers: [{ url: "https://opencode.example.com", projects: [{ worktree: "/workspace" }] }],
+    },
+  })
+  expect(requests.map((request) => [request.init?.method, request.url])).toEqual([
+    ["GET", "http://localhost:3000/api/profile"],
+    ["PUT", "http://localhost:3000/api/profile"],
+  ])
+  expect(JSON.parse(String(requests[1]?.init?.body))).toEqual({
+    revision: 0,
+    profile: {
+      version: 1,
+      servers: [{ url: "https://opencode.example.com", projects: [{ worktree: "/workspace" }] }],
+    },
+  })
+})
+
+test("profile replace exposes typed revision conflicts", async () => {
+  const client = OpenCode.make({
+    baseUrl: "http://localhost:3000",
+    fetch: async () =>
+      Response.json(
+        {
+          _tag: "RevisionConflict",
+          message: "UI profile revision conflict",
+          expectedRevision: 0,
+          actualRevision: 1,
+        },
+        { status: 409 },
+      ),
+  })
+
+  const error = await client.profile
+    .replace({ revision: 0, profile: { version: 1, servers: [] } })
+    .catch((error: unknown) => error)
+
+  expect(isRevisionConflict(error)).toBe(true)
 })
 
 test("sessions.get returns the wire projection", async () => {

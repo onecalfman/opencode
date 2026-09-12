@@ -59,6 +59,7 @@ import { ModelsDev } from "@opencode-ai/core/models-dev"
 import { Npm } from "@opencode-ai/core/npm"
 import { PermissionSaved } from "@opencode-ai/core/permission/saved"
 import { ProjectV2 } from "@opencode-ai/core/project"
+import { Profile } from "@opencode-ai/core/profile"
 import { ProjectCopy } from "@opencode-ai/core/project/copy"
 import { PtyTicket } from "@opencode-ai/core/pty/ticket"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
@@ -264,6 +265,7 @@ const app = LayerNode.group([
   httpClient,
   EventV2.node,
   ProjectV2.node,
+  Profile.node,
   ProjectCopy.node,
   PtyTicket.node,
 ])

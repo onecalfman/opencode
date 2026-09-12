@@ -67,6 +67,7 @@ export type Event =
   | EventQuestionV2Asked
   | EventQuestionV2Replied
   | EventQuestionV2Rejected
+  | EventProfileUpdated
   | EventTodoUpdated
   | EventLspUpdated
   | EventPermissionAsked
@@ -1356,6 +1357,14 @@ export type GlobalEvent = {
         properties: {
           sessionID: string
           requestID: string
+        }
+      }
+    | {
+        id: string
+        type: "profile.updated"
+        properties: {
+          revision: ProfileRevision
+          profile: ProfileDocument
         }
       }
     | {
@@ -2920,6 +2929,7 @@ export type V2Event =
   | QuestionV2Asked
   | QuestionV2Replied
   | QuestionV2Rejected
+  | ProfileUpdated
   | TodoUpdated
   | LspUpdated
   | PermissionAsked
@@ -2960,6 +2970,13 @@ export type ProjectCopyError = {
     message: string
     forceRequired?: boolean
   }
+}
+
+export type RevisionConflict = {
+  _tag: "RevisionConflict"
+  message: string
+  expectedRevision: ProfileRevision
+  actualRevision: ProfileRevision
 }
 
 export type EffectHttpApiErrorForbidden = {
@@ -3166,6 +3183,26 @@ export type QuestionV2Tool = {
 }
 
 export type QuestionV2Answer = Array<string>
+
+export type ProfileRevision = number
+
+export type ProfileServerUrl = string
+
+export type ProfileOpenedProject = {
+  worktree: string
+}
+
+export type ProfileServer = {
+  url: ProfileServerUrl
+  name?: string
+  projects: Array<ProfileOpenedProject>
+  openSessionIDs?: Array<string>
+}
+
+export type ProfileDocument = {
+  version: 1
+  servers: Array<ProfileServer>
+}
 
 export type ProjectVcs = "git"
 
@@ -5663,6 +5700,31 @@ export type QuestionV2Rejected = {
   }
 }
 
+export type ProfileServer1 = {
+  url: string
+  name?: string
+  projects: Array<ProfileOpenedProject>
+  openSessionIDs?: Array<string>
+}
+
+export type ProfileUpdated = {
+  id: string
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "profile.updated"
+  durable?: {
+    aggregateID: string
+    seq: number
+    version: number
+  }
+  location?: LocationRef
+  data: {
+    revision: ProfileRevision
+    profile: ProfileDocument
+  }
+}
+
 export type TodoUpdated = {
   id: string
   metadata?: {
@@ -6155,6 +6217,16 @@ export type ReferenceInfo = {
 
 export type ProjectCopyCopy = {
   directory: string
+}
+
+export type ProfileSnapshot = {
+  revision: ProfileRevision
+  profile: ProfileDocument
+}
+
+export type ProfileReplaceInput = {
+  revision: number
+  profile: ProfileDocument
 }
 
 export type EventModelsDevRefreshed = {
@@ -6842,6 +6914,15 @@ export type EventQuestionV2Rejected = {
   properties: {
     sessionID: string
     requestID: string
+  }
+}
+
+export type EventProfileUpdated = {
+  id: string
+  type: "profile.updated"
+  properties: {
+    revision: ProfileRevision
+    profile: ProfileDocument
   }
 }
 
@@ -13592,6 +13673,68 @@ export type V2ProjectCopyRefreshResponses = {
 }
 
 export type V2ProjectCopyRefreshResponse = V2ProjectCopyRefreshResponses[keyof V2ProjectCopyRefreshResponses]
+
+export type V2ProfileGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/api/profile"
+}
+
+export type V2ProfileGetErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+}
+
+export type V2ProfileGetError = V2ProfileGetErrors[keyof V2ProfileGetErrors]
+
+export type V2ProfileGetResponses = {
+  /**
+   * Profile.Snapshot
+   */
+  200: ProfileSnapshot
+}
+
+export type V2ProfileGetResponse = V2ProfileGetResponses[keyof V2ProfileGetResponses]
+
+export type V2ProfileReplaceData = {
+  body: ProfileReplaceInput
+  path?: never
+  query?: never
+  url: "/api/profile"
+}
+
+export type V2ProfileReplaceErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * RevisionConflict
+   */
+  409: RevisionConflict
+}
+
+export type V2ProfileReplaceError = V2ProfileReplaceErrors[keyof V2ProfileReplaceErrors]
+
+export type V2ProfileReplaceResponses = {
+  /**
+   * Profile.Snapshot
+   */
+  200: ProfileSnapshot
+}
+
+export type V2ProfileReplaceResponse = V2ProfileReplaceResponses[keyof V2ProfileReplaceResponses]
 
 export type PtyConnectData = {
   body?: never

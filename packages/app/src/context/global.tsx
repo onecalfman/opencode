@@ -1,5 +1,5 @@
 import { createSimpleContext } from "@opencode-ai/ui/context"
-import { createEffect, createMemo, createRoot } from "solid-js"
+import { createEffect, createMemo, createRoot, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createServerProjects, RECENTLY_CLOSED_DISPLAY_LIMIT, ServerConnection, useServer } from "./server"
 import { pathKey } from "@/utils/path-key"
@@ -47,7 +47,12 @@ export const { use: useGlobal, provider: GlobalProvider } = createSimpleContext(
       const existing = serverCtxs.get(key)
       if (existing) return existing.serverCtx
       const root = createRoot((dispose) => {
-        const serverCtx = createServerCtx(conn, server.scope(key), server.projects.forServer(key))
+        const serverCtx = createServerCtx(
+          conn,
+          server.scope(key),
+          server.projects.forServer(key),
+          key === server.profile.home ? server.profile.refresh : undefined,
+        )
         return { dispose, serverCtx }
       }, owner as any)
       serverCtxs.set(key, root)
@@ -97,6 +102,7 @@ function createServerCtx(
   conn: ServerConnection.Any,
   scope: ServerScope,
   projects: ReturnType<typeof createServerProjects>,
+  refreshProfile?: ReturnType<typeof useServer>["profile"]["refresh"],
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -108,6 +114,17 @@ function createServerCtx(
     },
   })
   const sdk = createServerSdkContext(conn, scope)
+  const unsubscribeProfile = refreshProfile
+    ? sdk.event.on("global", (event) => {
+        if (event.type === "server.connected") {
+          void refreshProfile()
+          return
+        }
+        if (event.type !== "profile.updated") return
+        void refreshProfile(event.properties)
+      })
+    : undefined
+  if (unsubscribeProfile) onCleanup(unsubscribeProfile)
   const sync = createServerSyncContext(sdk)
 
   function enrich(project: { worktree: string; expanded: boolean }) {

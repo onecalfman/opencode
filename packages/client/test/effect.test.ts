@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { DateTime, Effect, Stream } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
-import { AbsolutePath, Agent, Location, Model, OpenCode, Prompt, Session, SessionMessage } from "../src/effect"
+import { AbsolutePath, Agent, Location, Model, OpenCode, Profile, Prompt, Session, SessionMessage } from "../src/effect"
 
 test("sessions.get returns the decoded Effect projection", async () => {
   const httpClient = HttpClient.make((request) =>
@@ -13,6 +13,39 @@ test("sessions.get returns the decoded Effect projection", async () => {
   }).pipe(Effect.provideService(HttpClient.HttpClient, httpClient), Effect.runPromise)
 
   expect(DateTime.toEpochMillis(result.time.created)).toBe(1_717_171_717_000)
+})
+
+test("profile replace retains the typed RevisionConflict", async () => {
+  const httpClient = HttpClient.make((request) =>
+    Effect.succeed(
+      HttpClientResponse.fromWeb(
+        request,
+        Response.json(
+          {
+            _tag: "RevisionConflict",
+            message: "UI profile revision conflict",
+            expectedRevision: 0,
+            actualRevision: 1,
+          },
+          { status: 409 },
+        ),
+      ),
+    ),
+  )
+  const error = await Effect.gen(function* () {
+    const client = yield* OpenCode.make({ baseUrl: "http://localhost:3000" })
+    return yield* client.profile
+      .replace({ revision: 0, profile: Profile.Document.make({ version: 1, servers: [] }) })
+      .pipe(Effect.flip)
+  }).pipe(Effect.provideService(HttpClient.HttpClient, httpClient), Effect.runPromise)
+
+  expect(error).toEqual(
+    new Profile.RevisionConflict({
+      message: "UI profile revision conflict",
+      expectedRevision: 0,
+      actualRevision: 1,
+    }),
+  )
 })
 
 test("events.subscribe exposes and decodes the native Effect event stream", async () => {

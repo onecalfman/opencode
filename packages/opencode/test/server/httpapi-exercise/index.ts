@@ -744,6 +744,47 @@ const scenarios: Scenario[] = [
       "status",
     ),
   http.protected
+    .get("/api/profile", "v2.profile.get")
+    .global()
+    .json(200, (body) => {
+      object(body)
+      check(typeof body.revision === "number", "profile should include a revision")
+      object(body.profile)
+      check(body.profile.version === 1, "profile should use the current document version")
+      array(body.profile.servers)
+    }),
+  http.protected
+    .put("/api/profile", "v2.profile.replace")
+    .global()
+    .mutating()
+    .at(() => ({
+      path: "/api/profile",
+      body: {
+        revision: 0,
+        profile: {
+          version: 1,
+          servers: [
+            {
+              url: "https://opencode.example.com",
+              projects: [{ worktree: "/workspace" }],
+              openSessionIDs: ["ses_one", "ses_two"],
+            },
+          ],
+        },
+      },
+    }))
+    .json(200, (body) => {
+      object(body)
+      check(body.revision === 1, "profile replacement should increment the revision")
+      object(body.profile)
+      array(body.profile.servers)
+      check(body.profile.servers.length === 1, "profile replacement should persist its servers")
+      const server = body.profile.servers[0]
+      object(server)
+      array(server.openSessionIDs)
+      check(server.openSessionIDs.length === 2, "profile replacement should persist open sessions")
+    }),
+  http.protected
     .get("/api/fs/read/*", "v2.fs.read")
     .seeded((ctx) => ctx.file("hello.txt", "hello\n"))
     .at((ctx) => ({ path: "/api/fs/read/hello.txt", headers: ctx.headers() }))

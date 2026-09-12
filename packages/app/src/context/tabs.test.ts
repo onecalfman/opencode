@@ -3,6 +3,7 @@ import { createRoot, getOwner, onCleanup } from "solid-js"
 import { createTabMemory } from "./tab-memory"
 import { nextTabAfterClose, pushClosedTab, removeClosedTabs, takeClosedTab, type ClosedTab } from "./closed-tabs"
 import type { SessionTab, Tab } from "./tabs"
+import { profileSessionIDs, profileSessionTarget, reconcileProfileSessionTabs } from "./tab-profile"
 import { migrateTabs } from "./tab-migration"
 import type { ServerConnection } from "./server"
 
@@ -29,6 +30,64 @@ describe("tab migration", () => {
   })
 })
 
+describe("profile session tabs", () => {
+  test("reconciles one server while preserving drafts and other servers", () => {
+    const other = "https://other.example" as ServerConnection.Key
+    const draft = { type: "draft" as const, draftID: "draft", server, directory: "/repo" }
+    const tabs: Tab[] = [
+      sessionTab("ses_one"),
+      draft,
+      sessionTab("ses_two"),
+      { ...sessionTab("ses_other"), server: other },
+    ]
+
+    expect(
+      reconcileProfileSessionTabs(tabs, [
+        { key: server, url: "https://one.example/", sessionIDs: ["ses_two", "ses_three"] },
+      ]),
+    ).toEqual([
+      sessionTab("ses_two"),
+      draft,
+      sessionTab("ses_three"),
+      { ...sessionTab("ses_other"), server: other },
+    ])
+  })
+
+  test("deduplicates session IDs and appends sessions for a newly synchronized server", () => {
+    expect(
+      reconcileProfileSessionTabs([], [
+        { key: server, url: "https://one.example/", sessionIDs: ["ses_one", "invalid", "ses_one", "ses_two"] },
+      ]),
+    ).toEqual([sessionTab("ses_one"), sessionTab("ses_two")])
+  })
+
+  test("uses profile server order across multiple servers", () => {
+    const other = "https://other.example" as ServerConnection.Key
+    expect(
+      reconcileProfileSessionTabs([sessionTab("ses_one"), { ...sessionTab("ses_other"), server: other }], [
+        { key: other, url: "https://other.example/", sessionIDs: ["ses_other"] },
+        { key: server, url: "https://one.example/", sessionIDs: ["ses_one"] },
+      ]),
+    ).toEqual([{ ...sessionTab("ses_other"), server: other }, sessionTab("ses_one")])
+  })
+
+  test("reads and canonicalizes tabs stored under an equivalent server URL", () => {
+    const canonical = "HTTPS://ONE.EXAMPLE:443" as ServerConnection.Key
+    const stored = "https://one.example/" as ServerConnection.Key
+    const tabs = [{ ...sessionTab("ses_one"), server: stored }]
+    const target = { key: canonical, url: "https://one.example/" }
+
+    expect(profileSessionIDs(tabs, target)).toEqual(["ses_one"])
+    expect(profileSessionTarget(stored, [{ ...target, sessionIDs: ["ses_one"] }])).toEqual({
+      ...target,
+      sessionIDs: ["ses_one"],
+    })
+    expect(reconcileProfileSessionTabs(tabs, [{ ...target, sessionIDs: ["ses_one"] }])).toEqual([
+      { ...sessionTab("ses_one"), server: canonical },
+    ])
+  })
+})
+
 describe("tab memory", () => {
   test("keeps state until its tab is removed", () => {
     createRoot((dispose) => {
@@ -47,6 +106,11 @@ describe("tab memory", () => {
       memory.remove("tab")
       expect(disposed).toBe(1)
       expect(memory.ensure("tab", "prompt", () => ({ value: "new" }))).not.toBe(first)
+
+      const moved = memory.ensure("old", "prompt", () => ({ value: "moved" }))
+      memory.move("old", "new")
+      expect(memory.get("old", "prompt")).toBeUndefined()
+      expect(memory.get<typeof moved>("new", "prompt")).toBe(moved)
       dispose()
     })
   })

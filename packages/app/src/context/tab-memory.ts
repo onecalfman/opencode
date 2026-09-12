@@ -28,6 +28,25 @@ export function createTabMemory(owner: Owner | null) {
       state.set(name, entry)
       return entry.value
     },
+    move(from: string, to: string) {
+      if (from === to) return
+      const source = entries.get(from)
+      if (!source) return
+      const target = entries.get(to)
+      if (!target) {
+        entries.set(to, source)
+        entries.delete(from)
+        return
+      }
+      for (const [name, entry] of source) {
+        if (!target.has(name)) {
+          target.set(name, entry)
+          continue
+        }
+        entry.dispose()
+      }
+      entries.delete(from)
+    },
     remove,
     dispose() {
       for (const key of entries.keys()) remove(key)
