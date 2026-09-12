@@ -1,6 +1,6 @@
 import { createSimpleContext } from "@opencode/ui/context"
 import { batch, createMemo } from "solid-js"
-import { type SetStoreFunction, type Store } from "solid-js/store"
+import { reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import { Persist, persisted } from "@/runtime/persistence/storage"
 import { pathKey } from "@/workspaces/path-key"
 import { ServerScope } from "@/runtime/server/scope"
@@ -305,8 +305,8 @@ export const { use: useServers, provider: ServersProvider } = createSimpleContex
           const projects = applyProfileProjects({ profile: document, projects: store.projects, portableUrls: previous, scope: profileScope })
           const connections = applyProfileServers(allServers().filter((connection): connection is ServerConnection.Http => connection.type === "http"), document)
           batch(() => {
-            setStore("list", connections.map((connection) => ({ ...connection, http: { ...connection.http, url: normalizeServerUrl(connection.http.url) ?? connection.http.url } })))
-            setStore("projects", projects)
+            setStore("list", reconcile(connections.map((connection) => ({ ...connection, http: { ...connection.http, url: normalizeServerUrl(connection.http.url) ?? connection.http.url } }))))
+            setStore("projects", reconcile(projects))
           })
         },
       },

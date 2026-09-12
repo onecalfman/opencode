@@ -36,9 +36,9 @@ function ResolvedDraftRoute(props: { draft: DraftTab }) {
 
   return (
     <Show when={`${props.draft.server}\0${props.draft.directory}`} keyed>
-      <Show when={conn()} keyed>
+      <Show when={conn()}>
         {(conn) => (
-          <ServerProvider conn={conn}>
+          <ServerProvider conn={conn()}>
             <ResolvedDraftContent draft={props.draft} />
           </ServerProvider>
         )}

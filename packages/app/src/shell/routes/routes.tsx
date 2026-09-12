@@ -72,13 +72,13 @@ function TargetServerRoute(props: ParentProps) {
   const params = useParams<{ serverKey: string }>()
   const global = useGlobal()
 
-  const connection = createMemo(() =>
-    global.servers.list().find((item) => ServerConnection.key(item) === requireServerKey(params.serverKey)),
-  )
-
   return (
-    <Show when={connection()} keyed>
-      {(connection) => <ServerProvider conn={connection}>{props.children}</ServerProvider>}
+    <Show when={params.serverKey} keyed>
+      {(segment) => {
+        const key = requireServerKey(segment)
+        const connection = createMemo(() => global.servers.list().find((item) => ServerConnection.key(item) === key))
+        return <Show when={connection()}>{(connection) => <ServerProvider conn={connection()}>{props.children}</ServerProvider>}</Show>
+      }}
     </Show>
   )
 }
