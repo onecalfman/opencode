@@ -18,6 +18,7 @@ test("exposes every standard HTTP API group", () => {
     "integration",
     "mcp",
     "credential",
+    "profile",
     "project",
     "form",
     "permission",

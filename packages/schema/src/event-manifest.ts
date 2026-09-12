@@ -22,6 +22,7 @@ import { Permission } from "./permission.js"
 import { PersistentPty } from "./persistent-pty.js"
 import { Plugin } from "./plugin.js"
 import { Project } from "./project.js"
+import { Profile } from "./profile.js"
 import { Provider } from "./provider.js"
 import { Worktree } from "./worktree.js"
 import { Pty } from "./pty.js"
@@ -57,6 +58,7 @@ const featureDefinitions = Event.inventory(
   ...Permission.Event.Definitions,
   ...Plugin.Event.Definitions,
   ...Project.Event.Definitions,
+  ...Profile.Event.Definitions,
   ...Worktree.Event.Definitions,
   ...Command.Event.Definitions,
   ...Config.Event.Definitions,

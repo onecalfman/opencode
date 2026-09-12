@@ -160,6 +160,9 @@ import type {
   CredentialActivateOutput,
   CredentialRemoveInput,
   CredentialRemoveOutput,
+  ProfileGetOutput,
+  ProfileReplaceInput,
+  ProfileReplaceOutput,
   ProjectListInput,
   ProjectListOutput,
   ProjectUpdateInput,
@@ -1485,6 +1488,25 @@ export function make(options: ClientOptions) {
             successStatus: 204,
             declaredStatuses: [400, 401],
             empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    profile: {
+      get: (requestOptions?: RequestOptions) =>
+        request<ProfileGetOutput>(
+          { method: "GET", path: `/api/profile`, successStatus: 200, declaredStatuses: [400, 401], empty: false },
+          requestOptions,
+        ),
+      replace: (input: ProfileReplaceInput, requestOptions?: RequestOptions) =>
+        request<ProfileReplaceOutput>(
+          {
+            method: "PUT",
+            path: `/api/profile`,
+            body: { revision: input["revision"], profile: input["profile"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401, 409],
+            empty: false,
           },
           requestOptions,
         ),

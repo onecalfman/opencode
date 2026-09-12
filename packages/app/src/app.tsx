@@ -18,6 +18,7 @@ import { TabsProvider } from "@/shell/tabs/tabs"
 import { ErrorPage } from "@/shell/errors/error"
 import { AppRoutes, File, preloadRoute } from "@/shell/routes/routes"
 import { ExtensionRoot } from "@/runtime/extension/root"
+import { ProfileSync } from "@/runtime/server/profile-sync"
 
 export { preloadRoute }
 
@@ -96,6 +97,7 @@ export function AppInterface(props: {
   const Root = (rootProps: ParentProps) => (
     <TabsProvider>
       <GlobalProvider>
+        <ProfileSync />
         <BodyTypography />
         <CommandProvider>
           <DesktopCommands />

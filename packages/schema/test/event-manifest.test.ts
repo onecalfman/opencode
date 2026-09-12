@@ -9,6 +9,7 @@ import {
   Permission,
   PersistentPty,
   Project,
+  Profile,
   Reference,
   Session,
   Workspace,
@@ -40,6 +41,7 @@ describe("public event manifest", () => {
     expect(EventManifest.Server.get("session.created")).toBe(SessionEvent.Created)
     expect(EventManifest.Server.get("session.deleted")).toBe(SessionEvent.Deleted)
     expect(EventManifest.Server.get("project.updated")).toBe(Project.Event.Updated)
+    expect(EventManifest.Server.get("profile.updated")).toBe(Profile.Event.Updated)
     expect(EventManifest.Server.has("mcp.tools.changed")).toBe(false)
     expect(Agent.Event.Updated.durable).toBeUndefined()
     expect(EventManifest.Durable.has("agent.updated")).toBe(false)

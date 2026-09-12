@@ -166,6 +166,9 @@ import type {
   CredentialActivateOutput,
   CredentialRemoveInput,
   CredentialRemoveOutput,
+  ProfileGetOutput,
+  ProfileReplaceInput,
+  ProfileReplaceOutput,
   ProjectListInput,
   ProjectListOutput,
   ProjectUpdateInput,
@@ -1117,6 +1120,21 @@ const adaptGroupCredential = (raw: RawClient["server.credential"]) => ({
   remove: EndpointCredentialRemove(raw),
 })
 
+const EndpointProfileGet = (raw: RawClient["server.profile"]) => () =>
+  preserveEffect<ProfileGetOutput>()(raw["profile.get"]({}).pipe(Effect.mapError(mapClientError)))
+
+const EndpointProfileReplace = (raw: RawClient["server.profile"]) => (input: ProfileReplaceInput) =>
+  preserveEffect<ProfileReplaceOutput>()(
+    raw["profile.replace"]({ payload: { revision: input["revision"], profile: input["profile"] } }).pipe(
+      Effect.mapError(mapClientError),
+    ),
+  )
+
+const adaptGroupProfile = (raw: RawClient["server.profile"]) => ({
+  get: EndpointProfileGet(raw),
+  replace: EndpointProfileReplace(raw),
+})
+
 const EndpointProjectList = (raw: RawClient["server.project"]) => (input?: ProjectListInput) =>
   preserveEffect<ProjectListOutput>()(
     raw["project.list"]({ query: { archived: input?.["archived"] } }).pipe(Effect.mapError(mapClientError)),
@@ -1641,6 +1659,7 @@ const adaptClient = (raw: RawClient) => ({
   integration: adaptGroupIntegration(raw["server.integration"]),
   mcp: adaptGroupMcp(raw["server.mcp"]),
   credential: adaptGroupCredential(raw["server.credential"]),
+  profile: adaptGroupProfile(raw["server.profile"]),
   project: adaptGroupProject(raw["server.project"]),
   form: adaptGroupForm(raw["server.form"]),
   permission: adaptGroupPermission(raw["server.permission"]),

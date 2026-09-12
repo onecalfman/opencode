@@ -236,6 +236,10 @@ export type McpResourceTemplate = {
   mimeType?: string
 }
 
+export type ProfileRevision = number
+
+export type ProfileOpenedProject = { worktree: string }
+
 export type ProjectVcs = string
 
 export type ProjectIcon = { url?: string; override?: string; color?: string }
@@ -713,6 +717,14 @@ export type McpServer = {
 }
 
 export type McpResourceCatalog = { resources: Array<McpResource>; templates: Array<McpResourceTemplate> }
+
+export type ProfileServer = {
+  url: string
+  name?: string
+  projects: Array<ProfileOpenedProject>
+  openSessionIDs?: Array<SessionID>
+  openSessionInputAt?: number
+}
 
 export type Project = {
   id: ProjectID
@@ -1953,6 +1965,8 @@ export type VoiceSessionResponse = { data: { transport: VoiceTransport } }
 
 export type ConnectionInfo = ConnectionCredentialInfo | ConnectionEnvInfo
 
+export type ProfileDocument = { version: 1; servers: Array<ProfileServer> }
+
 export type PtyCreated = {
   id: EventID
   created: number
@@ -2388,6 +2402,17 @@ export type FormFields = [FormField, ...Array<FormField>]
 
 export type CredentialValue = CredentialOAuth | CredentialKey | CredentialExternal
 
+export type ProfileSnapshot = { revision: ProfileRevision; profile: ProfileDocument }
+
+export type ProfileUpdated = {
+  id: EventID
+  created: number
+  metadata?: { [x: string]: any }
+  type: "profile.updated"
+  location?: LocationRef
+  data: { revision: ProfileRevision; profile: ProfileDocument }
+}
+
 export type FormFields2 = [FormField1, ...Array<FormField1>]
 
 export type SessionMessageCompaction =
@@ -2627,6 +2652,7 @@ export type V2Event =
   | PermissionReplied
   | PluginUpdated
   | ProjectUpdated
+  | ProfileUpdated
   | WorktreeUpdated
   | WorktreeResolved
   | CommandUpdated
@@ -2840,6 +2866,15 @@ export type McpServerNotFoundError = {
 }
 export const isMcpServerNotFoundError = (value: unknown): value is McpServerNotFoundError =>
   typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "McpServerNotFoundError"
+
+export type RevisionConflict = {
+  readonly _tag: "RevisionConflict"
+  readonly message: string
+  readonly expectedRevision: number
+  readonly actualRevision: number
+}
+export const isRevisionConflict = (value: unknown): value is RevisionConflict =>
+  typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "RevisionConflict"
 
 export type ProjectNotFoundError = {
   readonly _tag: "ProjectNotFoundError"
@@ -6198,6 +6233,39 @@ export type CredentialActivateOutput = void
 export type CredentialRemoveInput = { readonly credentialID: { readonly credentialID: string }["credentialID"] }
 
 export type CredentialRemoveOutput = void
+
+export type ProfileGetOutput = ProfileSnapshot
+
+export type ProfileReplaceInput = {
+  readonly revision: {
+    readonly revision: number
+    readonly profile: {
+      readonly version: 1
+      readonly servers: ReadonlyArray<{
+        readonly url: string
+        readonly name?: string
+        readonly projects: ReadonlyArray<{ readonly worktree: string }>
+        readonly openSessionIDs?: ReadonlyArray<string>
+        readonly openSessionInputAt?: number
+      }>
+    }
+  }["revision"]
+  readonly profile: {
+    readonly revision: number
+    readonly profile: {
+      readonly version: 1
+      readonly servers: ReadonlyArray<{
+        readonly url: string
+        readonly name?: string
+        readonly projects: ReadonlyArray<{ readonly worktree: string }>
+        readonly openSessionIDs?: ReadonlyArray<string>
+        readonly openSessionInputAt?: number
+      }>
+    }
+  }["profile"]
+}
+
+export type ProfileReplaceOutput = ProfileSnapshot
 
 export type ProjectListInput = { readonly archived?: { readonly archived?: boolean | undefined }["archived"] }
 

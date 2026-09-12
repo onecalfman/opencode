@@ -6,6 +6,8 @@ import { pathKey } from "@/workspaces/path-key"
 import { ServerScope } from "@/runtime/server/scope"
 import type { ServerEntry } from "@opencode/gui-extensions/sdk"
 import { ServerHttp, ServerHttpBase, ServerKey, serverState } from "./persistence"
+import type { ProfileDocument } from "@opencode/client/promise"
+import { applyProfileProjects, applyProfileServers, portableServerUrl, projectPortableProfile } from "./server-profile"
 
 type ServerState = ReturnType<typeof serverState>["current"]["Type"]
 
@@ -274,6 +276,11 @@ export const { use: useServers, provider: ServersProvider } = createSimpleContex
       return next
     }
 
+    const profileScope = (url: string) => {
+      const connection = allServers().find((item) => portableServerUrl(item) === url)
+      return scope(connection ? ServerConnection.key(connection) : ServerKey.make(normalizeServerUrl(url) ?? url))
+    }
+
     return {
       get list() {
         return allServers()
@@ -284,6 +291,25 @@ export const { use: useServers, provider: ServersProvider } = createSimpleContex
       // Named to avoid the context `ready` gate: consumers that derive from persisted project
       // state wait on this, but the provider must not block first render on storage.
       hydrated,
+      profile: {
+        home: props.canonicalLocalServer,
+        read: () => projectPortableProfile({
+          servers: allServers(),
+          projects: (url) => store.projects[profileScope(url)] ?? [],
+        }),
+        apply(document: ProfileDocument) {
+          const previous = allServers().flatMap((connection) => {
+            const url = portableServerUrl(connection)
+            return url ? [url] : []
+          })
+          const projects = applyProfileProjects({ profile: document, projects: store.projects, portableUrls: previous, scope: profileScope })
+          const connections = applyProfileServers(allServers().filter((connection): connection is ServerConnection.Http => connection.type === "http"), document)
+          batch(() => {
+            setStore("list", connections.map((connection) => ({ ...connection, http: { ...connection.http, url: normalizeServerUrl(connection.http.url) ?? connection.http.url } })))
+            setStore("projects", projects)
+          })
+        },
+      },
       isHidden(key: ServerConnection.Key) {
         return store.hidden[key] ?? false
       },

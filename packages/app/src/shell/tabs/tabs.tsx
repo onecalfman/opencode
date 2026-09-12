@@ -5,7 +5,7 @@ import { createStore, produce } from "solid-js/store"
 import { Persist, persisted, removePersisted, draftPersistedKeys } from "@/runtime/persistence/storage"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useExtensionServers } from "@/runtime/extension/servers"
-import { createEffect, getOwner, onCleanup, startTransition } from "solid-js"
+import { batch, createEffect, getOwner, onCleanup, startTransition } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { usePlatform } from "@/runtime/platform/platform"
 import { uuid } from "@/runtime/persistence/uuid"
@@ -22,6 +22,7 @@ import {
 import { appendPrompt, promptLength } from "@/composer/prompt-parts"
 import { TabStorage } from "./schema"
 import { useCurrentRoute } from "@/shell/state/layout"
+import { reconcileProfileSessionTabs, type ProfileSessionTarget } from "@/runtime/server/tab-profile"
 
 export type SessionTab = typeof TabStorage.Session.Type
 
@@ -91,6 +92,8 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     const currentRoute = useCurrentRoute()
 
     const closing = new Set<string>()
+    const [profileState, setProfileState] = createStore({ inputs: {} as Record<string, number> })
+    const profileInput = (server: ServerConnection.Key) => setProfileState("inputs", server, (value = 0) => Math.max(value + 1, Date.now()))
     let recentWrite = 0
     let recentValue: string | undefined
 
@@ -195,6 +198,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     })
 
     const navigateTab = (tab: Tab) => {
+      profileInput(tab.server)
       const href = tabHref(tab)
       setRecentKey(tabKey(tab))
       navigate(href)
@@ -204,6 +208,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       const tab = store[index]
 
       if (!tab) return
+      profileInput(tab.server)
       const key = tabKey(tab)
       const draftID = tab.type === "draft" ? tab.draftID : undefined
       const nextTab = nextTabAfterClose(store, index, recentKey() === key && location.pathname !== "/")
@@ -235,6 +240,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         const existing = store.find((item) => tabKey(item) === tabKey(next))
 
         if (existing) return existing
+        profileInput(next.server)
         void startTransition(() => {
           setStore(
             produce((tabs) => {
@@ -253,6 +259,11 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
             const next = keys.flatMap((key) => byKey.get(key) ?? [])
 
             if (next.length !== tabs.length) return
+            new Set(tabs.map((tab) => tab.server)).forEach((server) => {
+              const before = tabs.filter((tab) => tab.server === server).map(tabKey)
+              const after = next.filter((tab) => tab.server === server).map(tabKey)
+              if (JSON.stringify(before) !== JSON.stringify(after)) profileInput(server)
+            })
             tabs.splice(0, tabs.length, ...next)
           }),
         )
@@ -639,6 +650,26 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       },
     }
 
-    return { ...actions, store, info, closed, ready, infoReady, recentReady, closedReady, regionsReady }
+    return {
+      ...actions, store, info, closed, ready, infoReady, recentReady, closedReady, regionsReady,
+      profile: {
+        inputAt: (server: ServerConnection.Key) => profileState.inputs[server] ?? 0,
+        apply(targets: ProfileSessionTarget[]) {
+          const next = reconcileProfileSessionTabs([...store], targets)
+          if (next.length === store.length && next.every((tab, index) => tab === store[index])) return
+          const keys = new Set(next.map(tabKey))
+          const removed = store.filter((tab) => !keys.has(tabKey(tab)))
+          removed.forEach((tab) => { memory.remove(tabKey(tab)); removeInfo(tabKey(tab)); removeRegions(tabKey(tab)) })
+          const current = store.find((tab) => tabKey(tab) === recentKey())
+          batch(() => {
+            setStore(() => next)
+            if (current?.type === "session" && !keys.has(tabKey(current))) {
+              setRecentKey(undefined)
+              if (location.pathname === tabHref(current)) navigate("/")
+            }
+          })
+        },
+      },
+    }
   },
 })

@@ -1681,6 +1681,54 @@ export interface CredentialApi<E = never> {
   readonly remove: CredentialRemoveOperation<E>
 }
 
+export type ProfileGetOutput = {
+  readonly revision: number
+  readonly profile: {
+    readonly version: 1
+    readonly servers: ReadonlyArray<{
+      readonly url: globalThis.URL
+      readonly name?: string | undefined
+      readonly projects: ReadonlyArray<{ readonly worktree: string }>
+      readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
+      readonly openSessionInputAt?: number | undefined
+    }>
+  }
+}
+export type ProfileGetOperation<E = never> = () => Effect.Effect<ProfileGetOutput, E>
+
+export type ProfileReplaceInput = {
+  readonly revision: number
+  readonly profile: {
+    readonly version: 1
+    readonly servers: ReadonlyArray<{
+      readonly url: globalThis.URL
+      readonly name?: string | undefined
+      readonly projects: ReadonlyArray<{ readonly worktree: string }>
+      readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
+      readonly openSessionInputAt?: number | undefined
+    }>
+  }
+}
+export type ProfileReplaceOutput = {
+  readonly revision: number
+  readonly profile: {
+    readonly version: 1
+    readonly servers: ReadonlyArray<{
+      readonly url: globalThis.URL
+      readonly name?: string | undefined
+      readonly projects: ReadonlyArray<{ readonly worktree: string }>
+      readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
+      readonly openSessionInputAt?: number | undefined
+    }>
+  }
+}
+export type ProfileReplaceOperation<E = never> = (input: ProfileReplaceInput) => Effect.Effect<ProfileReplaceOutput, E>
+
+export interface ProfileApi<E = never> {
+  readonly get: ProfileGetOperation<E>
+  readonly replace: ProfileReplaceOperation<E>
+}
+
 export type ProjectListInput = { readonly archived?: boolean | undefined }
 export type ProjectListOutput = ReadonlyArray<Project.Info>
 export type ProjectListOperation<E = never> = (input?: ProjectListInput) => Effect.Effect<ProjectListOutput, E>
@@ -2296,6 +2344,7 @@ export interface AppApi<E = never> {
   readonly integration: IntegrationApi<E>
   readonly mcp: McpApi<E>
   readonly credential: CredentialApi<E>
+  readonly profile: ProfileApi<E>
   readonly project: ProjectApi<E>
   readonly form: FormApi<E>
   readonly permission: PermissionApi<E>

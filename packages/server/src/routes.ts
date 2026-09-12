@@ -14,6 +14,7 @@ import { PermissionSaved } from "@opencode/core/permission/saved"
 import { PtyTicket } from "@opencode/core/pty/ticket"
 import { PersistentPty } from "@opencode/core/persistent-pty"
 import { Project } from "@opencode/core/project"
+import { Profile } from "@opencode/core/profile"
 import { Worktree } from "@opencode/core/worktree"
 import { Session } from "@opencode/core/session"
 import { Instance } from "@opencode/core/instance/service"
@@ -57,6 +58,7 @@ const applicationServiceNodes = [
   httpClient,
   Job.node,
   Project.node,
+  Profile.node,
   Project.sweepNode,
   Worktree.node,
   Session.node,
