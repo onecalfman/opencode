@@ -110,19 +110,24 @@ const SessionRoute = () => {
 function TargetServerRoute(props: ParentProps) {
   const params = useParams<{ serverKey: string; id: string }>()
   const global = useGlobal()
-  const conn = createMemo(() => {
-    const key = requireServerKey(params.serverKey)
-    return global.servers.list().find((item) => ServerConnection.key(item) === key)
-  })
 
   return (
     // Owns the server-identity remount. Session changes must NOT remount this
     // subtree (SessionRouteErrorBoundary resets and createSessionLineage
     // re-resolves reactively instead); both rely on this key for server changes.
-    <Show when={requireServerKey(params.serverKey)} keyed>
-      <ServerSDKProvider server={conn}>
-        <ServerSyncProvider server={conn}>{props.children}</ServerSyncProvider>
-      </ServerSDKProvider>
+    <Show when={params.serverKey} keyed>
+      {(segment) => {
+        // A profile refresh can run outside a pending navigation transition, where
+        // live params still belong to /new-session. Keep the server lookup under
+        // this keyed owner and resolve against its captured route segment.
+        const key = requireServerKey(segment)
+        const conn = createMemo(() => global.servers.list().find((item) => ServerConnection.key(item) === key))
+        return (
+          <ServerSDKProvider server={conn}>
+            <ServerSyncProvider server={conn}>{props.children}</ServerSyncProvider>
+          </ServerSDKProvider>
+        )
+      }}
     </Show>
   )
 }
