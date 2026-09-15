@@ -4,6 +4,7 @@ import { base64Encode } from "@opencode-ai/core/util/encode"
 import { Binary } from "@opencode-ai/core/util/binary"
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { batch, startTransition, type Accessor } from "solid-js"
+import { useServer } from "@/context/server"
 import { useTabs } from "@/context/tabs"
 import { useServerSync, type ServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
@@ -49,6 +50,7 @@ type FollowupSendInput = {
   messageID?: string
   optimisticBusy?: boolean
   before?: () => Promise<boolean> | boolean
+  onAdmitted?: (input: { timeCreated: number }) => void
 }
 
 const draftText = (prompt: Prompt) => prompt.map((part) => ("content" in part ? part.content : "")).join("")
@@ -85,7 +87,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       }
 
       const messageID = Identifier.ascending("message")
-      await input.api.command({
+      const admitted = await input.api.command({
         sessionID: input.draft.sessionID,
         id: messageID,
         command: cmd,
@@ -103,6 +105,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
           })),
         ),
       })
+      input.onAdmitted?.(admitted)
       return true
     } catch (err) {
       setIdle()
@@ -165,7 +168,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       return false
     }
 
-    await input.api.prompt({
+    const admitted = await input.api.prompt({
       sessionID: input.draft.sessionID,
       id: messageID,
       agent: input.draft.agent,
@@ -197,6 +200,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
           : [],
       ),
     })
+    input.onAdmitted?.(admitted)
     return true
   } catch (err) {
     batch(() => {
@@ -244,7 +248,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const params = useParams()
   const [search] = useSearchParams<{ draftId?: string }>()
   const tabs = useTabs()
+  const server = useServer()
   const pendingKey = (sessionID: string) => ScopedKey.from(sdk().scope, sessionID)
+  const sessionInput = (url: string) => (admitted: { timeCreated: number }) =>
+    server.profile.sessions.input({ url, timeCreated: admitted.timeCreated })
 
   const errorMessage = (err: unknown) => {
     if (err && typeof err === "object" && "message" in err && typeof err.message === "string") return err.message
@@ -351,6 +358,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     input.resetHistoryNavigation()
 
     const projectDirectory = sdk().directory
+    const onAdmitted = sessionInput(sdk().url)
     const permissionState = permission.currentServerState()
     const isNewSession = !params.id
     const shouldAutoAccept = isNewSession && input.autoAccept()
@@ -532,6 +540,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
               })),
             ),
           })
+          .then(onAdmitted)
           .catch((err) => {
             serverSync().session.set("session_status", session.id, { type: "idle" })
             showToast({
@@ -624,6 +633,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       messageID,
       optimisticBusy: sessionDirectory === projectDirectory,
       before: waitForWorktree,
+      onAdmitted,
     }).catch((err) => {
       pending.delete(pendingKey(session.id))
       if (sessionDirectory === projectDirectory) {

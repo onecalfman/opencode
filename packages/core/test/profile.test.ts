@@ -97,6 +97,56 @@ describe("Profile", () => {
     }),
   )
 
+  it.effect("keeps the newest input owner's open sessions authoritative", () =>
+    Effect.gen(function* () {
+      const profile = yield* Profile.Service
+      const url = Profile.ServerUrl.make(new URL("https://opencode.example.com"))
+
+      yield* profile.replace({
+        revision: 0,
+        profile: {
+          version: 1,
+          servers: [
+            {
+              url,
+              projects: [],
+              openSessionIDs: [SessionID.make("ses_newest")],
+              openSessionInputAt: 200,
+            },
+          ],
+        },
+      })
+      const stale = yield* profile.replace({
+        revision: 1,
+        profile: {
+          version: 1,
+          servers: [{ url, projects: [], openSessionIDs: [], openSessionInputAt: 100 }],
+        },
+      })
+      const omitted = yield* profile.replace({
+        revision: 2,
+        profile: { version: 1, servers: [{ url, projects: [], openSessionIDs: [] }] },
+      })
+      const owner = yield* profile.replace({
+        revision: 3,
+        profile: {
+          version: 1,
+          servers: [{ url, projects: [], openSessionIDs: [], openSessionInputAt: 200 }],
+        },
+      })
+
+      expect(stale.profile.servers[0]).toMatchObject({
+        openSessionIDs: [SessionID.make("ses_newest")],
+        openSessionInputAt: 200,
+      })
+      expect(omitted.profile.servers[0]).toMatchObject({
+        openSessionIDs: [SessionID.make("ses_newest")],
+        openSessionInputAt: 200,
+      })
+      expect(owner.profile.servers[0]).toMatchObject({ openSessionIDs: [], openSessionInputAt: 200 })
+    }),
+  )
+
   it.effect("rejects invalid constructed URLs before committing", () =>
     Effect.gen(function* () {
       const profile = yield* Profile.Service

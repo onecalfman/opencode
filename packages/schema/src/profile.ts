@@ -26,6 +26,7 @@ export const Server = Schema.Struct({
   name: optional(Schema.String),
   projects: Schema.Array(OpenedProject),
   openSessionIDs: optional(Schema.Array(SessionID)),
+  openSessionInputAt: optional(NonNegativeInt),
 }).annotate({ identifier: "Profile.Server" })
 
 export interface Document extends Schema.Schema.Type<typeof Document> {}

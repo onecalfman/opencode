@@ -243,24 +243,23 @@ test("replaying a session merge after a conflict keeps sessions from both client
     replayProfileOperations(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_first"] }]), [
       { type: "session.merge", url: "https://one.example", sessionIDs: ["ses_second"] },
     ]),
-  ).toEqual(
-    profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_first", "ses_second"] }]),
-  )
+  ).toEqual(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_first", "ses_second"] }]))
 })
 
 test("replaying session updates preserves concurrent opens and closes", () => {
   expect(
-    replayProfileOperations(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_a", "ses_b"] }]), [
-      {
-        type: "session.update",
-        url: "https://one.example",
-        previousSessionIDs: ["ses_a"],
-        sessionIDs: ["ses_a", "ses_c"],
-      },
-    ]),
-  ).toEqual(
-    profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_a", "ses_c", "ses_b"] }]),
-  )
+    replayProfileOperations(
+      profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_a", "ses_b"] }]),
+      [
+        {
+          type: "session.update",
+          url: "https://one.example",
+          previousSessionIDs: ["ses_a"],
+          sessionIDs: ["ses_a", "ses_c"],
+        },
+      ],
+    ),
+  ).toEqual(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_a", "ses_c", "ses_b"] }]))
 
   expect(
     replayProfileOperations(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_a"] }]), [
@@ -272,6 +271,124 @@ test("replaying session updates preserves concurrent opens and closes", () => {
       },
     ]),
   ).toEqual(profile([{ url: "https://one.example", projects: [], openSessionIDs: [] }]))
+})
+
+test("the newest session input owner controls open tabs", () => {
+  const initial = profile([
+    {
+      url: "https://one.example",
+      projects: [],
+      openSessionIDs: ["ses_old"],
+      openSessionInputAt: 100,
+    },
+  ])
+  const newer = replayProfileOperations(initial, [
+    {
+      type: "session.update",
+      url: "https://one.example",
+      previousSessionIDs: [],
+      sessionIDs: ["ses_new"],
+      inputAt: 200,
+    },
+  ])
+
+  expect(newer).toEqual(
+    profile([
+      {
+        url: "https://one.example",
+        projects: [],
+        openSessionIDs: ["ses_new"],
+        openSessionInputAt: 200,
+      },
+    ]),
+  )
+  expect(
+    replayProfileOperations(profile([{ url: "https://one.example", projects: [], openSessionIDs: ["ses_new"] }]), [
+      {
+        type: "session.update",
+        url: "https://one.example",
+        previousSessionIDs: ["ses_new"],
+        sessionIDs: ["ses_new"],
+        inputAt: 200,
+      },
+    ]),
+  ).toEqual(
+    profile([
+      {
+        url: "https://one.example",
+        projects: [],
+        openSessionIDs: ["ses_new"],
+        openSessionInputAt: 200,
+      },
+    ]),
+  )
+  expect(
+    replayProfileOperations(newer, [
+      {
+        type: "session.update",
+        url: "https://one.example",
+        previousSessionIDs: ["ses_old"],
+        sessionIDs: [],
+        inputAt: 100,
+      },
+      {
+        type: "session.update",
+        url: "https://one.example",
+        previousSessionIDs: ["ses_new"],
+        sessionIDs: [],
+      },
+    ]),
+  ).toEqual(newer)
+  expect(
+    replayProfileOperations(newer, [
+      {
+        type: "session.update",
+        url: "https://one.example",
+        previousSessionIDs: ["ses_new"],
+        sessionIDs: [],
+        inputAt: 200,
+      },
+    ]),
+  ).toEqual(
+    profile([
+      {
+        url: "https://one.example",
+        projects: [],
+        openSessionIDs: [],
+        openSessionInputAt: 200,
+      },
+    ]),
+  )
+})
+
+test("normalizing duplicate servers uses the newest input owner's tabs", () => {
+  expect(
+    normalizePortableProfile(
+      profile([
+        {
+          url: "https://one.example",
+          projects: [],
+          openSessionIDs: ["ses_new"],
+          openSessionInputAt: 200,
+        },
+        {
+          url: "https://one.example/",
+          projects: [],
+          openSessionIDs: ["ses_old"],
+          openSessionInputAt: 100,
+        },
+      ]),
+    ),
+  ).toEqual(
+    profile([
+      {
+        url: "https://one.example/",
+        projects: [],
+        openSessionIDs: ["ses_new"],
+        openSessionInputAt: 200,
+      },
+    ]),
+  )
 })
 
 test("one-time session import keeps remote order and appends local tabs", () => {

@@ -52,10 +52,21 @@ describe("Profile", () => {
     })
     expect(
       Schema.encodeSync(Profile.Server)(
-        decode({ url: "https://example.com", projects: [], openSessionIDs: ["ses_one", "ses_two"] }),
+        decode({
+          url: "https://example.com",
+          projects: [],
+          openSessionIDs: ["ses_one", "ses_two"],
+          openSessionInputAt: 123,
+        }),
       ),
-    ).toEqual({ url: "https://example.com/", projects: [], openSessionIDs: ["ses_one", "ses_two"] })
+    ).toEqual({
+      url: "https://example.com/",
+      projects: [],
+      openSessionIDs: ["ses_one", "ses_two"],
+      openSessionInputAt: 123,
+    })
     expect(() => decode({ url: "https://example.com", projects: [], openSessionIDs: ["invalid"] })).toThrow()
+    expect(() => decode({ url: "https://example.com", projects: [], openSessionInputAt: -1 })).toThrow()
   })
 
   test("rejects a replacement revision that cannot be incremented safely", () => {

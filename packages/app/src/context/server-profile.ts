@@ -29,7 +29,7 @@ export type ProfileOperation =
   | { type: "project.remove"; url: string; worktree: string }
   | { type: "project.move"; url: string; worktree: string; toIndex: number }
   | { type: "session.merge"; url: string; sessionIDs: string[] }
-  | { type: "session.update"; url: string; previousSessionIDs: string[]; sessionIDs: string[] }
+  | { type: "session.update"; url: string; previousSessionIDs: string[]; sessionIDs: string[]; inputAt?: number }
 
 export function portableServerUrl(connection: Connection): string | undefined {
   if (connection.type !== "http") return undefined
@@ -98,17 +98,27 @@ export function normalizePortableProfile(profile: ProfileDocument): ProfileDocum
       return
     }
     const worktrees = new Set(current.projects.map((project) => project.worktree))
+    const currentInputAt = current.openSessionInputAt
+    const incomingInputAt = normalized.openSessionInputAt
+    const incomingIsNewer =
+      incomingInputAt !== undefined && (currentInputAt === undefined || incomingInputAt > currentInputAt)
+    const currentIsNewer =
+      currentInputAt !== undefined && (incomingInputAt === undefined || currentInputAt > incomingInputAt)
     servers.set(url, {
       ...current,
       name: current.name ?? server.name,
       ...(current.openSessionIDs === undefined && normalized.openSessionIDs === undefined
         ? {}
         : {
-            openSessionIDs: mergeOpenSessionIDs(
-              current.openSessionIDs ?? [],
-              normalized.openSessionIDs ?? [],
-            ),
+            openSessionIDs: incomingIsNewer
+              ? (normalized.openSessionIDs ?? current.openSessionIDs ?? [])
+              : currentIsNewer
+                ? (current.openSessionIDs ?? normalized.openSessionIDs ?? [])
+                : mergeOpenSessionIDs(current.openSessionIDs ?? [], normalized.openSessionIDs ?? []),
           }),
+      ...(incomingInputAt === undefined && currentInputAt === undefined
+        ? {}
+        : { openSessionInputAt: Math.max(currentInputAt ?? 0, incomingInputAt ?? 0) }),
       projects: [
         ...current.projects,
         ...server.projects.filter((project) => {
@@ -232,21 +242,53 @@ export function applyProfileOperation(profile: ProfileDocument, operation: Profi
     if (index === -1) {
       return {
         ...profile,
-        servers: [...profile.servers, { url: operation.url, projects: [], openSessionIDs: incoming }],
+        servers: [
+          ...profile.servers,
+          {
+            url: operation.url,
+            projects: [],
+            openSessionIDs: incoming,
+            ...(operation.type === "session.update" && operation.inputAt !== undefined
+              ? { openSessionInputAt: operation.inputAt }
+              : {}),
+          },
+        ],
       }
     }
     const server = profile.servers[index]
+    if (operation.type === "session.merge" && server.openSessionInputAt !== undefined) return profile
+    if (
+      operation.type === "session.update" &&
+      server.openSessionInputAt !== undefined &&
+      (operation.inputAt === undefined || operation.inputAt < server.openSessionInputAt)
+    )
+      return profile
+    const newerInput =
+      operation.type === "session.update" &&
+      operation.inputAt !== undefined &&
+      (server.openSessionInputAt === undefined || operation.inputAt > server.openSessionInputAt)
     const sessionIDs =
       operation.type === "session.merge"
         ? mergeOpenSessionIDs(server.openSessionIDs ?? [], incoming)
-        : updateOpenSessionIDs(server.openSessionIDs ?? [], operation.previousSessionIDs, incoming)
+        : newerInput
+          ? incoming
+          : updateOpenSessionIDs(server.openSessionIDs ?? [], operation.previousSessionIDs, incoming)
+    const inputAt = operation.type === "session.update" ? (operation.inputAt ?? server.openSessionInputAt) : undefined
     if (
       server.openSessionIDs !== undefined &&
       server.openSessionIDs.length === sessionIDs.length &&
-      server.openSessionIDs.every((sessionID, itemIndex) => sessionID === sessionIDs[itemIndex])
+      server.openSessionIDs.every((sessionID, itemIndex) => sessionID === sessionIDs[itemIndex]) &&
+      server.openSessionInputAt === inputAt
     )
       return profile
-    return { ...profile, servers: profile.servers.with(index, { ...server, openSessionIDs: sessionIDs }) }
+    return {
+      ...profile,
+      servers: profile.servers.with(index, {
+        ...server,
+        openSessionIDs: sessionIDs,
+        ...(inputAt === undefined ? {} : { openSessionInputAt: inputAt }),
+      }),
+    }
   }
   if (index === -1) {
     if (operation.type !== "project.open") return profile
@@ -287,7 +329,10 @@ function updateOpenSessionIDs(current: readonly string[], previous: readonly str
   const added = new Set(desired.filter((sessionID) => !before.has(sessionID)))
   const alive = dedupeSessionIDs(current).filter((sessionID) => !removed.has(sessionID))
   const available = new Set([...alive, ...added])
-  return [...desired.filter((sessionID) => available.has(sessionID)), ...alive.filter((sessionID) => !next.has(sessionID))]
+  return [
+    ...desired.filter((sessionID) => available.has(sessionID)),
+    ...alive.filter((sessionID) => !next.has(sessionID)),
+  ]
 }
 
 export function replayProfileOperations(profile: ProfileDocument, operations: readonly ProfileOperation[]) {

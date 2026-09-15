@@ -2824,6 +2824,7 @@ export type ProfileGetOutput = {
       readonly name?: string
       readonly projects: ReadonlyArray<{ readonly worktree: string }>
       readonly openSessionIDs?: ReadonlyArray<string>
+      readonly openSessionInputAt?: number
     }>
   }
 }
@@ -2838,6 +2839,7 @@ export type ProfileReplaceInput = {
         readonly name?: string
         readonly projects: ReadonlyArray<{ readonly worktree: string }>
         readonly openSessionIDs?: ReadonlyArray<string>
+        readonly openSessionInputAt?: number
       }>
     }
   }["revision"]
@@ -2850,6 +2852,7 @@ export type ProfileReplaceInput = {
         readonly name?: string
         readonly projects: ReadonlyArray<{ readonly worktree: string }>
         readonly openSessionIDs?: ReadonlyArray<string>
+        readonly openSessionInputAt?: number
       }>
     }
   }["profile"]
@@ -2864,6 +2867,7 @@ export type ProfileReplaceOutput = {
       readonly name?: string
       readonly projects: ReadonlyArray<{ readonly worktree: string }>
       readonly openSessionIDs?: ReadonlyArray<string>
+      readonly openSessionInputAt?: number
     }>
   }
 }
