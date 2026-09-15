@@ -74,13 +74,23 @@ const layer = Layer.effect(
       const current = yield* db.select().from(ProfileTable).where(eq(ProfileTable.id, ID)).get().pipe(Effect.orDie)
       if (!current) return yield* Effect.die("UI profile singleton is missing")
       const validated = yield* validate(input.profile).pipe(Effect.orDie)
-      const previous = new Map(current.document.servers.map((server) => [server.url, server.openSessionIDs]))
+      const previous = new Map(current.document.servers.map((server) => [server.url, server]))
       const document = {
         ...validated,
         servers: validated.servers.map((server) => {
+          const existing = previous.get(server.url)
+          if (!existing) return server
+          if (
+            existing.openSessionInputAt !== undefined &&
+            (server.openSessionInputAt === undefined || server.openSessionInputAt < existing.openSessionInputAt)
+          )
+            return {
+              ...server,
+              ...(existing.openSessionIDs === undefined ? {} : { openSessionIDs: existing.openSessionIDs }),
+              openSessionInputAt: existing.openSessionInputAt,
+            }
           if (server.openSessionIDs !== undefined) return server
-          const openSessionIDs = previous.get(server.url)
-          return openSessionIDs === undefined ? server : { ...server, openSessionIDs }
+          return existing.openSessionIDs === undefined ? server : { ...server, openSessionIDs: existing.openSessionIDs }
         }),
       }
       const row = yield* db

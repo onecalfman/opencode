@@ -162,7 +162,10 @@ export function createNewSessionComposerAdapter(props: {
           directory: sessionDirectory,
           handoff: createSessionMessageHandoff(sessionKey, created.id, serverSDK.event),
           api: {
-            command: (input) => afterCreation(() => serverSDK.api.session.command(input)),
+            command: (input) => afterCreation(() => serverSDK.api.session.command(input)).then((value) => {
+              tabs.profile.input(server.key)
+              return value
+            }),
             shell: (input) => afterCreation(() => serverSDK.api.session.shell(input)),
             switchAgent: (input) => afterCreation(() => serverSDK.api.session.switchAgent(input)),
             switchModel: (input) => afterCreation(() => serverSDK.api.session.switchModel(input)),
@@ -176,6 +179,9 @@ export function createNewSessionComposerAdapter(props: {
                 data.session.prompt({
                   ...input,
                   gate: Promise.all([input.gate, afterCreation(async () => undefined)]),
+                }).then((value) => {
+                  tabs.profile.input(server.key)
+                  return value
                 }),
             },
           },

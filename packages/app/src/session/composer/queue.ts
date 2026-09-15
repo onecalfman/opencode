@@ -17,6 +17,8 @@ import { useServerSDK } from "@/runtime/server/client"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { useLanguage } from "@/runtime/i18n/language"
 import { showToast } from "@/shell/notifications/toast"
+import { useTabs } from "@/shell/tabs/tabs"
+import { ServerConnection } from "@/runtime/server/registry"
 
 export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
 
@@ -36,6 +38,7 @@ export function createSessionQueue(input: {
 }) {
   const data = useData()
   const server = useServerSDK()
+  const tabs = useTabs()
   const location = useWorkspaceLocation()
   const language = useLanguage()
   const [state, setState] = createStore<{ editing?: { id: string; stash: EditStash } }>({})
@@ -106,6 +109,7 @@ export function createSessionQueue(input: {
       cancelEdit()
     },
     onError: notify,
+    onSuccess: () => tabs.profile.input(ServerConnection.key(server.server)),
     onSettled: () => data.session.pending.sync(input.sessionID).catch(() => undefined),
   }))
 

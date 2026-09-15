@@ -653,6 +653,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     return {
       ...actions, store, info, closed, ready, infoReady, recentReady, closedReady, regionsReady,
       profile: {
+        input: profileInput,
         inputAt: (server: ServerConnection.Key) => profileState.inputs[server] ?? 0,
         apply(targets: ProfileSessionTarget[]) {
           const next = reconcileProfileSessionTabs([...store], targets)
