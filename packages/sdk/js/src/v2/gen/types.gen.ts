@@ -3197,6 +3197,7 @@ export type ProfileServer = {
   name?: string
   projects: Array<ProfileOpenedProject>
   openSessionIDs?: Array<string>
+  openSessionInputAt?: number
 }
 
 export type ProfileDocument = {
@@ -5705,6 +5706,7 @@ export type ProfileServer1 = {
   name?: string
   projects: Array<ProfileOpenedProject>
   openSessionIDs?: Array<string>
+  openSessionInputAt?: number
 }
 
 export type ProfileUpdated = {

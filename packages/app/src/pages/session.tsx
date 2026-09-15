@@ -351,6 +351,7 @@ function SessionPanelFrame(props: ParentProps<{ newLayout: boolean; raised?: boo
 }
 
 export default function Page() {
+  const server = useServer()
   const serverSync = useServerSync()
   const layout = useLayout()
   const local = useLocal()
@@ -1717,6 +1718,7 @@ export default function Page() {
   const followupMutation = useMutation(() => ({
     mutationFn: async (input: { sessionID: string; id: string; manual?: boolean }) => {
       const owner = sessionOwnership.capture()
+      const serverUrl = sdk().url
       const item = (followup.items[input.sessionID] ?? []).find((entry) => entry.id === input.id)
       if (!item) return
 
@@ -1729,6 +1731,7 @@ export default function Page() {
         serverSync: serverSync(),
         draft: item,
         optimisticBusy: item.sessionDirectory === sdk().directory,
+        onAdmitted: (admitted) => server.profile.sessions.input({ url: serverUrl, timeCreated: admitted.timeCreated }),
       }).catch((err) => {
         setFollowup("failed", input.sessionID, input.id)
         fail(err)

@@ -32,6 +32,7 @@ const sentPrompts: string[] = []
 const promptInputs: unknown[] = []
 const sentCommands: unknown[] = []
 const commands: Array<{ name: string }> = []
+const sessionInputs: Array<{ url: string; timeCreated: number }> = []
 let serverSessionSyncs = 0
 
 let params: { id?: string } = {}
@@ -95,10 +96,11 @@ const clientFor = (directory: string) => {
         prompt: async (input: unknown) => {
           sentPrompts.push(directory)
           promptInputs.push(input)
-          return { data: undefined }
+          return { timeCreated: 101 }
         },
         command: async (input: unknown) => {
           sentCommands.push(input)
+          return { timeCreated: 102 }
         },
         shell: async (input: { sessionID: string; id?: string; command: string }) => {
           sentShell.push(input)
@@ -135,6 +137,7 @@ beforeAll(async () => {
   mock.module("@opencode-ai/ui/toast", () => ({
     Toast: { Region: () => null },
     showToast: () => 0,
+    toaster: { dismiss: () => undefined },
   }))
 
   mock.module("@opencode-ai/core/util/encode", () => ({
@@ -168,7 +171,14 @@ beforeAll(async () => {
   })
 
   mock.module("@/context/server", () => ({
-    useServer: () => ({ key: "server-key" }),
+    useServer: () => ({
+      key: "server-key",
+      profile: {
+        sessions: {
+          input: (value: { url: string; timeCreated: number }) => sessionInputs.push(value),
+        },
+      },
+    }),
   }))
 
   mock.module("@/context/tabs", () => ({
@@ -291,6 +301,7 @@ beforeEach(() => {
   promptInputs.length = 0
   sentCommands.length = 0
   commands.length = 0
+  sessionInputs.length = 0
   promptValue = [{ type: "text", content: "ls", start: 0, end: 2 }]
   params = {}
   search = {}
@@ -492,6 +503,7 @@ describe("prompt submit worktree selection", () => {
     expect((promptInputs[0] as { legacyParts?: { id: string; type: string; text?: string }[] }).legacyParts).toEqual([
       { id: expect.stringMatching(/^prt_/), type: "text", text: "ls" },
     ])
+    expect(sessionInputs).toEqual([{ url: "http://localhost:4096", timeCreated: 101 }])
   })
 
   test("submits slash commands through the current session API", async () => {
@@ -518,6 +530,7 @@ describe("prompt submit worktree selection", () => {
     })
 
     await submit.handleSubmit({ preventDefault: () => undefined } as unknown as Event)
+    await Bun.sleep(0)
 
     expect(sentCommands).toEqual([
       {
@@ -530,6 +543,7 @@ describe("prompt submit worktree selection", () => {
         files: [],
       },
     ])
+    expect(sessionInputs).toEqual([{ url: "http://localhost:4096", timeCreated: 102 }])
     expect(serverSessionSyncs).toBe(0)
   })
 

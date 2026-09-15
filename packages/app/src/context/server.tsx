@@ -366,6 +366,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
       retryTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       sessionBridge: undefined as ProfileSessionBridge | undefined,
       sessionSynced: new Set<string>(),
+      sessionInputAt: new Map<string, number>(),
     }
 
     const localProfile = () =>
@@ -489,6 +490,12 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
         const sessionIDs = bridge.read({ key, url: serverUrl })
         const remote = desired.servers.find((item) => item.url === serverUrl)
         if (!profileState.sessionSynced.has(serverUrl) && !store.profileSessionImported[serverUrl]) {
+          if (remote?.openSessionInputAt !== undefined) {
+            profileState.sessionSynced.add(serverUrl)
+            targets.push({ key, url: serverUrl, sessionIDs: [...(remote.openSessionIDs ?? [])] })
+            setStore("profileSessionImported", serverUrl, true)
+            return
+          }
           const merged = mergeOpenSessionIDs(remote?.openSessionIDs ?? [], sessionIDs)
           profileState.sessionSynced.add(serverUrl)
           enqueueProfileOperation({
@@ -520,6 +527,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
           url: serverUrl,
           previousSessionIDs: [...remote.openSessionIDs],
           sessionIDs,
+          inputAt: profileState.sessionInputAt.get(serverUrl),
         })
       })
       if (targets.length > 0) bridge.apply(targets)
@@ -537,6 +545,27 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
         profileState.sessionBridge = undefined
         profileState.sessionSynced.clear()
       }
+    }
+
+    function sessionInput(input: { url: string; timeCreated: number }) {
+      const serverUrl = portableServerUrl({ type: "http", http: { url: input.url } })
+      if (!serverUrl) return
+      const previous = profileState.sessionInputAt.get(serverUrl)
+      if (previous !== undefined && previous > input.timeCreated) return
+      profileState.sessionInputAt.set(serverUrl, input.timeCreated)
+      const bridge = profileState.sessionBridge
+      if (!bridge?.ready() || profileState.disabled || profileState.disposed) return
+      const connection = allServers().find((server) => portableServerUrl(server) === serverUrl)
+      if (!connection) return
+      const key = ServerConnection.key(connection)
+      const desired = replayProfileOperations(profileState.base, profileState.pending)
+      enqueueProfileOperation({
+        type: "session.update",
+        url: serverUrl,
+        previousSessionIDs: desired.servers.find((server) => server.url === serverUrl)?.openSessionIDs ?? [],
+        sessionIDs: bridge.read({ key, url: serverUrl }),
+        inputAt: input.timeCreated,
+      })
     }
 
     const getProfile = () =>
@@ -883,6 +912,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
         sessions: {
           register: registerSessionBridge,
           changed: sessionTabsChanged,
+          input: sessionInput,
         },
       },
       scope,
