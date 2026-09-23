@@ -3,6 +3,7 @@ import type { ProfileDocument } from "@opencode-ai/sdk/v2/types"
 import {
   applyProfileProjects,
   applyProfileServers,
+  latestSessionInputAt,
   mergeOpenSessionIDs,
   mergePortableProfiles,
   normalizePortableProfile,
@@ -271,6 +272,43 @@ test("replaying session updates preserves concurrent opens and closes", () => {
       },
     ]),
   ).toEqual(profile([{ url: "https://one.example", projects: [], openSessionIDs: [] }]))
+})
+
+test("a client hydrated from the profile can close tabs without submitting a new prompt", () => {
+  const inputAt = latestSessionInputAt(undefined, 200)
+  expect(inputAt).toBe(200)
+  expect(latestSessionInputAt(100, 200)).toBe(200)
+  expect(latestSessionInputAt(300, 200)).toBe(300)
+  expect(
+    replayProfileOperations(
+      profile([
+        {
+          url: "https://one.example",
+          projects: [],
+          openSessionIDs: ["ses_open"],
+          openSessionInputAt: 200,
+        },
+      ]),
+      [
+        {
+          type: "session.update",
+          url: "https://one.example",
+          previousSessionIDs: ["ses_open"],
+          sessionIDs: [],
+          inputAt,
+        },
+      ],
+    ),
+  ).toEqual(
+    profile([
+      {
+        url: "https://one.example",
+        projects: [],
+        openSessionIDs: [],
+        openSessionInputAt: 200,
+      },
+    ]),
+  )
 })
 
 test("the newest session input owner controls open tabs", () => {

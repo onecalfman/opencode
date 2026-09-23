@@ -172,6 +172,12 @@ export function mergeOpenSessionIDs(remote: readonly string[], local: readonly s
   return dedupeSessionIDs([...remote, ...local])
 }
 
+export function latestSessionInputAt(local?: number, remote?: number) {
+  if (local === undefined) return remote
+  if (remote === undefined) return local
+  return Math.max(local, remote)
+}
+
 export function applyProfileServers(local: readonly ProfileLocalServer[], profile: ProfileDocument) {
   const existing = new Map(
     local.flatMap((server) => {

@@ -11,6 +11,7 @@ import {
   applyProfileOperation,
   applyProfileProjects,
   applyProfileServers,
+  latestSessionInputAt,
   mergeOpenSessionIDs,
   mergePortableProfiles,
   normalizePortableProfile,
@@ -527,7 +528,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
           url: serverUrl,
           previousSessionIDs: [...remote.openSessionIDs],
           sessionIDs,
-          inputAt: profileState.sessionInputAt.get(serverUrl),
+          inputAt: latestSessionInputAt(profileState.sessionInputAt.get(serverUrl), remote.openSessionInputAt),
         })
       })
       if (targets.length > 0) bridge.apply(targets)
