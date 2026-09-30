@@ -6,7 +6,7 @@ import { useTabs } from "@/shell/tabs/tabs"
 import { usePlatform } from "@/runtime/platform/platform"
 import { createApiForServer } from "./api"
 import { profileSessionIDs, type ProfileSessionTarget } from "./tab-profile"
-import { mergePortableProfiles, normalizePortableProfile, portableServerUrl, replayProfileOperations, sameProfile, type ProfileOperation } from "./server-profile"
+import { latestSessionInputAt, mergePortableProfiles, normalizePortableProfile, portableServerUrl, replayProfileOperations, sameProfile, type ProfileOperation } from "./server-profile"
 
 export function ProfileSync() {
   const servers = useServers()
@@ -71,7 +71,10 @@ export function ProfileSync() {
           const count = operations.length
           const local = untrack(read)
           const base = seeded ? normalizePortableProfile(remote.profile) : mergePortableProfiles(normalizePortableProfile(remote.profile), local)
-          const document = replayProfileOperations(base, operations.slice(0, count))
+          const pending = operations.slice(0, count).map((operation) => operation.type === "session.update"
+            ? { ...operation, inputAt: latestSessionInputAt(operation.inputAt, remote.profile.servers.find((entry) => entry.url === operation.url)?.openSessionInputAt) }
+            : operation)
+          const document = replayProfileOperations(base, pending)
           if (sameProfile(document, remote.profile)) {
             operations.splice(0, count)
             seeded = true

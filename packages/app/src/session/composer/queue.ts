@@ -109,7 +109,7 @@ export function createSessionQueue(input: {
       cancelEdit()
     },
     onError: notify,
-    onSuccess: () => tabs.profile.input(ServerConnection.key(server.server)),
+    onSuccess: (_, change) => { if (change.type === "edit") tabs.profile.input(ServerConnection.key(server.server)) },
     onSettled: () => data.session.pending.sync(input.sessionID).catch(() => undefined),
   }))
 

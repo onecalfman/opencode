@@ -198,7 +198,6 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     })
 
     const navigateTab = (tab: Tab) => {
-      profileInput(tab.server)
       const href = tabHref(tab)
       setRecentKey(tabKey(tab))
       navigate(href)
@@ -208,7 +207,6 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       const tab = store[index]
 
       if (!tab) return
-      profileInput(tab.server)
       const key = tabKey(tab)
       const draftID = tab.type === "draft" ? tab.draftID : undefined
       const nextTab = nextTabAfterClose(store, index, recentKey() === key && location.pathname !== "/")
@@ -240,7 +238,6 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         const existing = store.find((item) => tabKey(item) === tabKey(next))
 
         if (existing) return existing
-        profileInput(next.server)
         void startTransition(() => {
           setStore(
             produce((tabs) => {
@@ -259,11 +256,6 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
             const next = keys.flatMap((key) => byKey.get(key) ?? [])
 
             if (next.length !== tabs.length) return
-            new Set(tabs.map((tab) => tab.server)).forEach((server) => {
-              const before = tabs.filter((tab) => tab.server === server).map(tabKey)
-              const after = next.filter((tab) => tab.server === server).map(tabKey)
-              if (JSON.stringify(before) !== JSON.stringify(after)) profileInput(server)
-            })
             tabs.splice(0, tabs.length, ...next)
           }),
         )
