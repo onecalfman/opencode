@@ -3,7 +3,7 @@ import { createSimpleContext } from "@opencode-ai/ui/context"
 import { createStore, produce } from "solid-js/store"
 import { Persist, persisted, removePersisted, draftPersistedKeys } from "@/utils/persist"
 import { ServerConnection, useServer } from "./server"
-import { batch, createEffect, getOwner, onCleanup, startTransition } from "solid-js"
+import { batch, createEffect, getOwner, on, onCleanup, startTransition } from "solid-js"
 import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { usePlatform } from "./platform"
 import { uuid } from "@/utils/uuid"
@@ -159,9 +159,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
           routeTarget &&
           removedTabs.some(
             (tab) =>
-              tab.type === "session" &&
-              tab.sessionId === params.id &&
-              profileSessionIDs([tab], routeTarget).length > 0,
+              tab.type === "session" && tab.sessionId === params.id && profileSessionIDs([tab], routeTarget).length > 0,
           )
         for (const item of migrations) {
           const from = tabKey(item.from)
@@ -187,10 +185,17 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     onCleanup(memory.dispose)
     onCleanup(unregisterSessionProfile)
 
-    createEffect(() => {
-      if (!ready()) return
-      server.profile.sessions.changed()
-    })
+    // Profile hydration can return before reading the bridge, so track tab changes
+    // explicitly rather than relying on dependencies read inside changed().
+    createEffect(
+      on(
+        () => [ready(), server.list, store.map(tabKey)] as const,
+        (input) => {
+          if (!input[0]) return
+          server.profile.sessions.changed()
+        },
+      ),
+    )
 
     createEffect(() => {
       if (!ready() || !recentReady()) return
@@ -215,9 +220,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
           params.id &&
           removedTabs.some(
             (tab) =>
-              tab.type === "session" &&
-              tab.sessionId === params.id &&
-              profileServersEqual(tab.server, routeServer),
+              tab.type === "session" && tab.sessionId === params.id && profileServersEqual(tab.server, routeServer),
           )
         batch(() => {
           if (removeActive) navigate("/")
