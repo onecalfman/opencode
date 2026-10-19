@@ -1,5 +1,6 @@
 import { Layer } from "effect"
 import { ProfileHandler } from "./handlers/profile.js"
+import { PushHandler } from "./handlers/push.js"
 import { GenerateHandler } from "./handlers/generate"
 import { VoiceHandler } from "./handlers/voice"
 import { MessageHandler } from "./handlers/message"
@@ -35,6 +36,7 @@ import { ConfigHandler } from "./handlers/config"
 
 export const handlers = Layer.mergeAll(
   ProfileHandler,
+  PushHandler,
   ServerHandler,
   DebugHandler,
   MigrationHandler,

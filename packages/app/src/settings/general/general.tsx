@@ -2,6 +2,7 @@ import { Component, Show, createMemo, createResource } from "solid-js"
 import { createMediaQuery } from "@solid-primitives/media"
 import { Select } from "@opencode/ui/select"
 import { Switch } from "@opencode/ui/switch"
+import { Button } from "@opencode/ui/button"
 import { TimelineDetailControl } from "@/settings/timeline-detail"
 import { useLanguage } from "@/runtime/i18n/language"
 import { usePlatform } from "@/runtime/platform/platform"
@@ -243,6 +244,11 @@ export const SettingsGeneral: Component = () => {
       <h3 class="settings-section-title">{language.t("settings.general.section.general")}</h3>
       <SettingsList>
         <LanguageSetting />
+        <Show when={platform.platform === "web"}>
+          <SettingsRow title={language.t("settings.general.row.reload.title")} description={language.t("settings.general.row.reload.description")}>
+            <Button data-action="settings-reload-app" variant="neutral" onClick={() => void platform.restart()}>{language.t("settings.general.row.reload.title")}</Button>
+          </SettingsRow>
+        </Show>
         <TabLayoutSetting />
 
         <WorkspaceDestinationSetting />

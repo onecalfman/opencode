@@ -93,7 +93,8 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
 
     const closing = new Set<string>()
     const [profileState, setProfileState] = createStore({ inputs: {} as Record<string, number> })
-    const profileInput = (server: ServerConnection.Key) => setProfileState("inputs", server, (value = 0) => Math.max(value + 1, Date.now()))
+    const profileInput = (server: ServerConnection.Key) =>
+      setProfileState("inputs", server, (value = 0) => Math.max(value + 1, Date.now()))
     let recentWrite = 0
     let recentValue: string | undefined
 
@@ -643,7 +644,15 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     }
 
     return {
-      ...actions, store, info, closed, ready, infoReady, recentReady, closedReady, regionsReady,
+      ...actions,
+      store,
+      info,
+      closed,
+      ready,
+      infoReady,
+      recentReady,
+      closedReady,
+      regionsReady,
       profile: {
         input: profileInput,
         inputAt: (server: ServerConnection.Key) => profileState.inputs[server] ?? 0,
@@ -652,7 +661,11 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
           if (next.length === store.length && next.every((tab, index) => tab === store[index])) return
           const keys = new Set(next.map(tabKey))
           const removed = store.filter((tab) => !keys.has(tabKey(tab)))
-          removed.forEach((tab) => { memory.remove(tabKey(tab)); removeInfo(tabKey(tab)); removeRegions(tabKey(tab)) })
+          removed.forEach((tab) => {
+            memory.remove(tabKey(tab))
+            removeInfo(tabKey(tab))
+            removeRegions(tabKey(tab))
+          })
           const current = store.find((tab) => tabKey(tab) === recentKey())
           batch(() => {
             setStore(() => next)

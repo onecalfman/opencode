@@ -1,4 +1,4 @@
-import { Component } from "solid-js"
+import { Component, For } from "solid-js"
 import { Select } from "@opencode/ui/select"
 import { Switch } from "@opencode/ui/switch"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -11,6 +11,8 @@ import {
   type SoundSettingsController,
 } from "@/settings/general/controllers"
 import "@/settings/settings.css"
+import { useServers } from "@/runtime/server/registry"
+import { SettingsPush } from "@/settings/general/push"
 
 const soundSettings = {
   agent: {
@@ -58,6 +60,7 @@ export const SettingsNotifications: Component = () => {
   const language = useLanguage()
   const settings = useSettings()
   const sounds = createSoundSettingsController()
+  const servers = useServers()
 
   return (
     <>
@@ -76,6 +79,9 @@ export const SettingsNotifications: Component = () => {
         <div class="settings-section">
           <h3 class="settings-section-title">{language.t("settings.general.section.notifications")}</h3>
           <SettingsList>
+            <For each={servers.list.filter((connection) => connection.type === "http")}>
+              {(server) => <SettingsPush server={server} />}
+            </For>
             <SettingsRow
               title={language.t("settings.general.notifications.agent.title")}
               description={language.t("settings.general.notifications.agent.description")}

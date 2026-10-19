@@ -126,6 +126,20 @@ const schema: Omit<DatabaseMigration.Migration, "id"> = {
         );
       `)
       yield* tx.run(`
+        CREATE TABLE \`push_key\` (
+          \`id\` integer PRIMARY KEY,
+          \`public_key\` text NOT NULL,
+          \`private_key\` text NOT NULL
+        );
+      `)
+      yield* tx.run(`
+        CREATE TABLE \`push_subscription\` (
+          \`id\` text PRIMARY KEY,
+          \`endpoint\` text NOT NULL UNIQUE,
+          \`registration\` text NOT NULL
+        );
+      `)
+      yield* tx.run(`
         CREATE TABLE \`instruction_blob\` (
           \`hash\` text PRIMARY KEY,
           \`value\` text

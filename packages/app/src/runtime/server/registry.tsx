@@ -293,19 +293,36 @@ export const { use: useServers, provider: ServersProvider } = createSimpleContex
       hydrated,
       profile: {
         home: props.canonicalLocalServer,
-        read: () => projectPortableProfile({
-          servers: allServers(),
-          projects: (url) => store.projects[profileScope(url)] ?? [],
-        }),
+        read: () =>
+          projectPortableProfile({
+            servers: allServers(),
+            projects: (url) => store.projects[profileScope(url)] ?? [],
+          }),
         apply(document: ProfileDocument) {
           const previous = allServers().flatMap((connection) => {
             const url = portableServerUrl(connection)
             return url ? [url] : []
           })
-          const projects = applyProfileProjects({ profile: document, projects: store.projects, portableUrls: previous, scope: profileScope })
-          const connections = applyProfileServers(allServers().filter((connection): connection is ServerConnection.Http => connection.type === "http"), document)
+          const projects = applyProfileProjects({
+            profile: document,
+            projects: store.projects,
+            portableUrls: previous,
+            scope: profileScope,
+          })
+          const connections = applyProfileServers(
+            allServers().filter((connection): connection is ServerConnection.Http => connection.type === "http"),
+            document,
+          )
           batch(() => {
-            setStore("list", reconcile(connections.map((connection) => ({ ...connection, http: { ...connection.http, url: normalizeServerUrl(connection.http.url) ?? connection.http.url } }))))
+            setStore(
+              "list",
+              reconcile(
+                connections.map((connection) => ({
+                  ...connection,
+                  http: { ...connection.http, url: normalizeServerUrl(connection.http.url) ?? connection.http.url },
+                })),
+              ),
+            )
             setStore("projects", reconcile(projects))
           })
         },

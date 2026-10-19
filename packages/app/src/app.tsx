@@ -19,6 +19,7 @@ import { ErrorPage } from "@/shell/errors/error"
 import { AppRoutes, File, preloadRoute } from "@/shell/routes/routes"
 import { ExtensionRoot } from "@/runtime/extension/root"
 import { ProfileSync } from "@/runtime/server/profile-sync"
+import { PushNotificationProvider } from "@/runtime/server/push-notifications"
 
 export { preloadRoute }
 
@@ -96,6 +97,7 @@ export function AppInterface(props: {
   // providers beneath it.
   const Root = (rootProps: ParentProps) => (
     <TabsProvider>
+      <PushNotificationProvider>
       <GlobalProvider>
         <ProfileSync />
         <BodyTypography />
@@ -105,6 +107,7 @@ export function AppInterface(props: {
           {rootProps.children}
         </CommandProvider>
       </GlobalProvider>
+      </PushNotificationProvider>
     </TabsProvider>
   )
 

@@ -30,7 +30,7 @@ describe("Profile", () => {
           version: 1,
           servers: [
             {
-              url: Profile.ServerUrl.make(new URL("https://opencode.example.com")),
+              url: "https://opencode.example.com/",
               name: "Remote",
               projects: [{ worktree: "/workspace" }],
               openSessionIDs: [SessionID.make("ses_one"), SessionID.make("ses_two")],
@@ -60,7 +60,7 @@ describe("Profile", () => {
   it.effect("preserves established open sessions when an older client omits them", () =>
     Effect.gen(function* () {
       const profile = yield* Profile.Service
-      const url = Profile.ServerUrl.make(new URL("https://opencode.example.com"))
+      const url = "https://opencode.example.com/"
 
       yield* profile.replace({
         revision: 0,
@@ -86,7 +86,7 @@ describe("Profile", () => {
   it.effect("keeps the newest input owner's open sessions authoritative", () =>
     Effect.gen(function* () {
       const profile = yield* Profile.Service
-      const url = Profile.ServerUrl.make(new URL("https://opencode.example.com"))
+      const url = "https://opencode.example.com/"
 
       yield* profile.replace({
         revision: 0,
@@ -139,15 +139,15 @@ describe("Profile", () => {
       const result = yield* profile
         .replace({
           revision: 0,
-          profile: Profile.Document.make({
+          profile: {
             version: 1,
             servers: [
               {
-                url: Profile.ServerUrl.make(new URL("https://user:secret@example.com")),
+                url: "https://user:secret@example.com",
                 projects: [],
               },
             ],
-          }),
+          },
         })
         .pipe(Effect.exit)
 
@@ -160,7 +160,7 @@ describe("Profile", () => {
     Effect.gen(function* () {
       const profile = yield* Profile.Service
       const server = {
-        url: Profile.ServerUrl.make(new URL("https://opencode.example.com")),
+        url: "https://opencode.example.com/",
         projects: [],
         username: "user",
         password: "secret",

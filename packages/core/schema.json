@@ -1,8 +1,8 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "15710225-c055-4e54-89f3-600ebc75c8b0",
-  "prevIds": ["aefc065a-22cc-4dd4-a0d0-809d0a49ff9e"],
+  "id": "dc81f92e-0ddb-4ca5-8dd0-c18aa1bc7345",
+  "prevIds": ["15710225-c055-4e54-89f3-600ebc75c8b0"],
   "ddl": [
     {
       "name": "account_state",
@@ -46,6 +46,14 @@
     },
     {
       "name": "project",
+      "entityType": "tables"
+    },
+    {
+      "name": "push_key",
+      "entityType": "tables"
+    },
+    {
+      "name": "push_subscription",
       "entityType": "tables"
     },
     {
@@ -783,6 +791,66 @@
       "name": "commands",
       "entityType": "columns",
       "table": "project"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "public_key",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "private_key",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "push_subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "endpoint",
+      "entityType": "columns",
+      "table": "push_subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "registration",
+      "entityType": "columns",
+      "table": "push_subscription"
     },
     {
       "type": "text",
@@ -1787,6 +1855,20 @@
       "entityType": "pks"
     },
     {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "push_key_pk",
+      "table": "push_key",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "push_subscription_pk",
+      "table": "push_subscription",
+      "entityType": "pks"
+    },
+    {
       "columns": ["hash"],
       "nameExplicit": false,
       "name": "instruction_blob_pk",
@@ -2122,6 +2204,13 @@
       "name": "session_v2_time_suspended_idx",
       "entityType": "indexes",
       "table": "session_v2"
+    },
+    {
+      "columns": ["endpoint"],
+      "nameExplicit": false,
+      "name": "push_subscription_endpoint_unique",
+      "entityType": "uniques",
+      "table": "push_subscription"
     },
     {
       "value": "\"id\" = 1",

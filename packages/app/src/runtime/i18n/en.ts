@@ -1,6 +1,20 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "settings.general.row.reload.title": "Reload app",
+  "settings.general.row.reload.description": "Reload the web app and reconnect to your servers.",
+  "settings.general.notifications.push.title": "Push notifications on this device",
+  "settings.general.notifications.push.description": "Receive task completions and input requests from this server, even when OpenCode is closed. Uses the notification preferences below.",
+  "settings.general.notifications.push.enable": "Enable push",
+  "settings.general.notifications.push.disable": "Disable push",
+  "settings.general.notifications.push.test": "Send test",
+  "settings.general.notifications.push.retry": "Retry",
+  "settings.general.notifications.push.testTitle": "Push notifications are ready",
+  "settings.general.notifications.push.install": "On iPhone or iPad, add OpenCode to your Home Screen, open it from there, then enable push.",
+  "settings.general.notifications.push.secure": "Open OpenCode over HTTPS to enable push notifications.",
+  "settings.general.notifications.push.denied": "Notifications are blocked. Allow them in your browser or device settings, then try again.",
+  "settings.general.notifications.push.unsupported": "This browser does not support Web Push notifications.",
+  "settings.general.notifications.push.error": "Push notifications could not be updated or delivered. Check your connection and notification permissions, then try again.",
   "project.settings.tag.title": "Project tag",
   "project.settings.tag.description": "A short label shown beside this project's chat tabs.",
   ...DESKTOP_NATIVE_ENGLISH,

@@ -14,6 +14,7 @@ import type { createNotificationCoordinator } from "@/shell/notifications/coordi
 import { ServerConnection } from "@/runtime/server/registry"
 import { sessionIDHasOpenTab, useTabs } from "@/shell/tabs/tabs"
 import { useServer } from "@/runtime/server/current"
+import { usePushNotifications } from "@/runtime/server/push-notifications"
 
 type NotificationTabs = Pick<ReturnType<typeof useTabs>, "addSessionTab" | "rememberSessionRoute" | "select">
 
@@ -60,6 +61,7 @@ export function createServerNotificationState(input: {
   coordinator: ReturnType<typeof createNotificationCoordinator>
 }) {
   const platform = usePlatform()
+  const push = usePushNotifications()
   const settings = useSettings()
   const language = useLanguage()
   const tabs = useTabs()
@@ -230,7 +232,7 @@ export function createServerNotificationState(input: {
         void input.coordinator.sound(`${input.key}\0${eventID}`, () => playSoundById(settings.sounds.agent()))
       }
 
-      if (hasOpenTab && settings.notifications.agent()) {
+      if (hasOpenTab && settings.notifications.agent() && !push.state.active[input.key]) {
         void input.coordinator.system(`${input.key}\0${eventID}`, () =>
           platform.notify(language.t("notification.session.responseReady.title"), session.title ?? sessionID, () =>
             openNotificationSession(tabs, input.key, sessionID),
@@ -254,7 +256,7 @@ export function createServerNotificationState(input: {
 
       const description = session?.title ?? language.t("notification.session.error.fallbackDescription")
 
-      if (hasOpenTab && settings.notifications.errors()) {
+      if (hasOpenTab && settings.notifications.errors() && !push.state.active[input.key]) {
         void input.coordinator.system(`${input.key}\0${eventID}`, () =>
           platform.notify(language.t("notification.session.error.title"), description, () =>
             openNotificationSession(tabs, input.key, sessionID),

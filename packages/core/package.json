@@ -75,6 +75,7 @@
     }
   },
   "devDependencies": {
+    "@types/web-push": "3.6.4",
     "@ai-sdk/openai-compatible": "2.0.41",
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-bun": "catalog:",
@@ -96,6 +97,7 @@
     "fast-check": "catalog:"
   },
   "dependencies": {
+    "web-push": "3.6.7",
     "@ai-sdk/cohere": "3.0.27",
     "@ai-sdk/perplexity": "3.0.26",
     "@ai-sdk/provider": "3.0.8",

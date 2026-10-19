@@ -1,6 +1,6 @@
 export * as Profile from "./profile.js"
 
-import { Schema, SchemaTransformation } from "effect"
+import { Schema, SchemaGetter, SchemaTransformation } from "effect"
 import { ephemeral, inventory } from "./event.js"
 import { NonNegativeInt, optional } from "./schema.js"
 import { SessionID } from "./session-id.js"
@@ -10,9 +10,13 @@ const ServerUrlString = Schema.String.check(
     /^https?:\/\/(?![^/?#\s]*@)(?:\[[0-9a-f:.]+\]|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(?::[1-9]\d{0,4})?(?:\/[^\s?#]*)?$/i,
   ),
 )
-export const ServerUrl = ServerUrlString.pipe(Schema.decodeTo(Schema.URL, SchemaTransformation.urlFromString)).annotate(
-  { identifier: "Profile.ServerUrl" },
-)
+export const ServerUrl = ServerUrlString.pipe(
+  Schema.decodeTo(Schema.URL, SchemaTransformation.urlFromString),
+  Schema.decodeTo(Schema.String, {
+    decode: SchemaGetter.transform((value) => value.href),
+    encode: SchemaGetter.transform((value) => new URL(value)),
+  }),
+).annotate({ identifier: "Profile.ServerUrl" })
 export type ServerUrl = typeof ServerUrl.Type
 
 export interface OpenedProject extends Schema.Schema.Type<typeof OpenedProject> {}

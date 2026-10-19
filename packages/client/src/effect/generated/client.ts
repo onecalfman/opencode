@@ -169,6 +169,13 @@ import type {
   ProfileGetOutput,
   ProfileReplaceInput,
   ProfileReplaceOutput,
+  PushConfigurationOutput,
+  PushRegisterInput,
+  PushRegisterOutput,
+  PushRemoveInput,
+  PushRemoveOutput,
+  PushTestInput,
+  PushTestOutput,
   ProjectListInput,
   ProjectListOutput,
   ProjectUpdateInput,
@@ -1135,6 +1142,40 @@ const adaptGroupProfile = (raw: RawClient["server.profile"]) => ({
   replace: EndpointProfileReplace(raw),
 })
 
+const EndpointPushConfiguration = (raw: RawClient["server.push"]) => () =>
+  preserveEffect<PushConfigurationOutput>()(raw["push.configuration"]({}).pipe(Effect.mapError(mapClientError)))
+
+const EndpointPushRegister = (raw: RawClient["server.push"]) => (input: PushRegisterInput) =>
+  preserveEffect<PushRegisterOutput>()(
+    raw["push.register"]({
+      params: { id: input["id"] },
+      payload: {
+        subscription: input["subscription"],
+        origin: input["origin"],
+        serverKey: input["serverKey"],
+        preferences: input["preferences"],
+        titles: input["titles"],
+      },
+    }).pipe(Effect.mapError(mapClientError)),
+  )
+
+const EndpointPushRemove = (raw: RawClient["server.push"]) => (input: PushRemoveInput) =>
+  preserveEffect<PushRemoveOutput>()(
+    raw["push.remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError)),
+  )
+
+const EndpointPushTest = (raw: RawClient["server.push"]) => (input: PushTestInput) =>
+  preserveEffect<PushTestOutput>()(
+    raw["push.test"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError)),
+  )
+
+const adaptGroupPush = (raw: RawClient["server.push"]) => ({
+  configuration: EndpointPushConfiguration(raw),
+  register: EndpointPushRegister(raw),
+  remove: EndpointPushRemove(raw),
+  test: EndpointPushTest(raw),
+})
+
 const EndpointProjectList = (raw: RawClient["server.project"]) => (input?: ProjectListInput) =>
   preserveEffect<ProjectListOutput>()(
     raw["project.list"]({ query: { archived: input?.["archived"] } }).pipe(Effect.mapError(mapClientError)),
@@ -1660,6 +1701,7 @@ const adaptClient = (raw: RawClient) => ({
   mcp: adaptGroupMcp(raw["server.mcp"]),
   credential: adaptGroupCredential(raw["server.credential"]),
   profile: adaptGroupProfile(raw["server.profile"]),
+  push: adaptGroupPush(raw["server.push"]),
   project: adaptGroupProject(raw["server.project"]),
   form: adaptGroupForm(raw["server.form"]),
   permission: adaptGroupPermission(raw["server.permission"]),

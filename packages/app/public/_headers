@@ -26,3 +26,7 @@
 /registerSW.js
   Content-Type: application/javascript
   Cache-Control: no-cache
+
+/push-worker.js
+  Content-Type: application/javascript
+  Cache-Control: no-cache

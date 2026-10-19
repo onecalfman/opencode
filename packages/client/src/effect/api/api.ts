@@ -1686,7 +1686,7 @@ export type ProfileGetOutput = {
   readonly profile: {
     readonly version: 1
     readonly servers: ReadonlyArray<{
-      readonly url: globalThis.URL
+      readonly url: string
       readonly name?: string | undefined
       readonly projects: ReadonlyArray<{ readonly worktree: string }>
       readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
@@ -1701,7 +1701,7 @@ export type ProfileReplaceInput = {
   readonly profile: {
     readonly version: 1
     readonly servers: ReadonlyArray<{
-      readonly url: globalThis.URL
+      readonly url: string
       readonly name?: string | undefined
       readonly projects: ReadonlyArray<{ readonly worktree: string }>
       readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
@@ -1714,7 +1714,7 @@ export type ProfileReplaceOutput = {
   readonly profile: {
     readonly version: 1
     readonly servers: ReadonlyArray<{
-      readonly url: globalThis.URL
+      readonly url: string
       readonly name?: string | undefined
       readonly projects: ReadonlyArray<{ readonly worktree: string }>
       readonly openSessionIDs?: ReadonlyArray<Session.ID> | undefined
@@ -1727,6 +1727,44 @@ export type ProfileReplaceOperation<E = never> = (input: ProfileReplaceInput) =>
 export interface ProfileApi<E = never> {
   readonly get: ProfileGetOperation<E>
   readonly replace: ProfileReplaceOperation<E>
+}
+
+export type PushConfigurationOutput = { readonly publicKey: string }
+export type PushConfigurationOperation<E = never> = () => Effect.Effect<PushConfigurationOutput, E>
+
+export type PushRegisterInput = {
+  readonly id: string
+  readonly subscription: {
+    readonly endpoint: string
+    readonly keys: { readonly p256dh: string; readonly auth: string }
+  }
+  readonly origin: string
+  readonly serverKey: string
+  readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+  readonly titles: {
+    readonly agent: string
+    readonly permission: string
+    readonly question: string
+    readonly errors: string
+    readonly test: string
+  }
+}
+export type PushRegisterOutput = boolean
+export type PushRegisterOperation<E = never> = (input: PushRegisterInput) => Effect.Effect<PushRegisterOutput, E>
+
+export type PushRemoveInput = { readonly id: string }
+export type PushRemoveOutput = boolean
+export type PushRemoveOperation<E = never> = (input: PushRemoveInput) => Effect.Effect<PushRemoveOutput, E>
+
+export type PushTestInput = { readonly id: string }
+export type PushTestOutput = boolean
+export type PushTestOperation<E = never> = (input: PushTestInput) => Effect.Effect<PushTestOutput, E>
+
+export interface PushApi<E = never> {
+  readonly configuration: PushConfigurationOperation<E>
+  readonly register: PushRegisterOperation<E>
+  readonly remove: PushRemoveOperation<E>
+  readonly test: PushTestOperation<E>
 }
 
 export type ProjectListInput = { readonly archived?: boolean | undefined }
@@ -2345,6 +2383,7 @@ export interface AppApi<E = never> {
   readonly mcp: McpApi<E>
   readonly credential: CredentialApi<E>
   readonly profile: ProfileApi<E>
+  readonly push: PushApi<E>
   readonly project: ProjectApi<E>
   readonly form: FormApi<E>
   readonly permission: PermissionApi<E>

@@ -36,7 +36,7 @@ describe("Profile", () => {
   test("omits an undefined server name while encoding", () => {
     expect(
       Schema.encodeSync(Profile.Server)({
-        url: Profile.ServerUrl.make(new URL("http://localhost:4096")),
+        url: "http://localhost:4096/",
         name: undefined,
         projects: [],
       }),
