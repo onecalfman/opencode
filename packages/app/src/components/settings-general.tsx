@@ -31,6 +31,7 @@ import { decode64 } from "@/utils/base64"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { ExternalLink } from "./external-link"
 import { SettingsList } from "./settings-list"
+import { SettingsPush } from "./settings-push"
 
 let demoSoundState = {
   cleanup: undefined as (() => void) | undefined,
@@ -316,6 +317,22 @@ export const SettingsGeneral: Component = () => {
           />
         </SettingsRow>
 
+        <Show when={platform.platform === "web"}>
+          <SettingsRow
+            title={language.t("settings.general.row.reload.title")}
+            description={language.t("settings.general.row.reload.description")}
+          >
+            <Button
+              data-action="settings-reload-app"
+              size="small"
+              variant="secondary"
+              onClick={() => void platform.restart()}
+            >
+              {language.t("settings.general.row.reload.title")}
+            </Button>
+          </SettingsRow>
+        </Show>
+
         <SettingsRow
           title={language.t("command.permissions.autoaccept.enable")}
           description={language.t("toast.permissions.autoaccept.on.description")}
@@ -579,6 +596,7 @@ export const SettingsGeneral: Component = () => {
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.notifications")}</h3>
 
       <SettingsList>
+        <SettingsPush />
         <SettingsRow
           title={language.t("settings.general.notifications.agent.title")}
           description={language.t("settings.general.notifications.agent.description")}

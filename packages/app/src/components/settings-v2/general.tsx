@@ -10,6 +10,7 @@ import { usePlatform } from "@/context/platform"
 import { useUpdaterAction } from "../updater-action"
 import { useSettings } from "@/context/settings"
 import { ExternalLink } from "../external-link"
+import { SettingsPush } from "../settings-push"
 import { SettingsListV2 } from "./parts/list"
 import { SettingsRowV2 } from "./parts/row"
 import { LayoutRetirementNotice, LayoutTransitionToggle } from "./interface-transition"
@@ -330,6 +331,17 @@ export const SettingsGeneralV2: Component<{
       <SettingsListV2>
         <LanguageSetting />
 
+        <Show when={platform.platform === "web"}>
+          <SettingsRowV2
+            title={language.t("settings.general.row.reload.title")}
+            description={language.t("settings.general.row.reload.description")}
+          >
+            <ButtonV2 data-action="settings-reload-app" variant="neutral" onClick={() => void platform.restart()}>
+              {language.t("settings.general.row.reload.title")}
+            </ButtonV2>
+          </SettingsRowV2>
+        </Show>
+
         <PermissionScopeSetting controller={permissionScope} />
 
         <ShellSetting controller={shell} />
@@ -472,6 +484,7 @@ export const SettingsGeneralV2: Component<{
       <h3 class="settings-v2-section-title">{language.t("settings.general.section.notifications")}</h3>
 
       <SettingsListV2>
+        <SettingsPush />
         <SettingsRowV2
           title={language.t("settings.general.notifications.agent.title")}
           description={language.t("settings.general.notifications.agent.description")}

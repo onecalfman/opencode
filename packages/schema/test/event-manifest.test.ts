@@ -3,14 +3,15 @@ import { FileSystem, Integration, Permission, Profile, Project, Reference, Sessi
 import { EventManifest } from "../src/event-manifest"
 import { IdeEvent } from "../src/ide-event"
 import { SessionEvent } from "../src/session-event"
+import { SessionExecutionEvent } from "../src/session-execution-event"
 import { SessionTodo } from "../src/session-todo"
 import { SessionV1 } from "../src/session-v1"
 import { WorkspaceEvent } from "../src/workspace-event"
 
 describe("public event manifest", () => {
   test("owns the complete public event surface", () => {
-    expect(EventManifest.ServerDefinitions.length).toBe(59)
-    expect(EventManifest.Definitions.length).toBe(89)
+    expect(EventManifest.ServerDefinitions.length).toBe(60)
+    expect(EventManifest.Definitions.length).toBe(90)
     expect(SessionV1.Event.Definitions).toEqual([
       SessionV1.Event.Created,
       SessionV1.Event.Updated,
@@ -23,7 +24,7 @@ describe("public event manifest", () => {
       SessionV1.Event.Diff,
       SessionV1.Event.Error,
     ])
-    expect(EventManifest.Latest.size).toBe(89)
+    expect(EventManifest.Latest.size).toBe(90)
     expect(EventManifest.Durable.size).toBe(35)
   })
 
@@ -36,6 +37,8 @@ describe("public event manifest", () => {
     expect(EventManifest.Latest.get("todo.updated")).toBe(SessionTodo.Event.Updated)
     expect(EventManifest.Latest.get("project.updated")).toBe(Project.Event.Updated)
     expect(EventManifest.Latest.get("profile.updated")).toBe(Profile.Event.Updated)
+    expect(EventManifest.Latest.get("session.execution.finished")).toBe(SessionExecutionEvent.Finished)
+    expect(SessionExecutionEvent.Finished.durable).toBeUndefined()
     expect(Project.Event.Definitions).toEqual([Project.Event.Updated])
     expect(FileSystem.Event.Definitions).toEqual([FileSystem.Event.Edited])
     expect(Integration.Event.Definitions).toEqual([Integration.Event.Updated, Integration.Event.ConnectionUpdated])

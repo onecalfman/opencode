@@ -49,6 +49,7 @@
     "@types/semver": "catalog:",
     "@types/turndown": "5.0.5",
     "@types/which": "3.0.4",
+    "@types/web-push": "3.6.4",
     "@parcel/watcher-darwin-arm64": "2.5.1",
     "@parcel/watcher-darwin-x64": "2.5.1",
     "@parcel/watcher-linux-arm64-glibc": "2.5.1",
@@ -124,6 +125,7 @@
     "turndown": "7.2.0",
     "venice-ai-sdk-provider": "2.1.1",
     "which": "6.0.1",
+    "web-push": "3.6.7",
     "xdg-basedir": "5.1.0",
     "zod": "catalog:"
   },

@@ -115,6 +115,13 @@ import type {
   ProfileGetOutput,
   ProfileReplaceInput,
   ProfileReplaceOutput,
+  PushConfigurationOutput,
+  PushRegisterInput,
+  PushRegisterOutput,
+  PushRemoveInput,
+  PushRemoveOutput,
+  PushTestInput,
+  PushTestOutput,
 } from "./types"
 import { ClientError } from "./client-error"
 
@@ -1004,6 +1011,53 @@ export function make(options: ClientOptions) {
             body: { revision: input["revision"], profile: input["profile"] },
             successStatus: 200,
             declaredStatuses: [409, 401, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    push: {
+      configuration: (requestOptions?: RequestOptions) =>
+        request<PushConfigurationOutput>(
+          { method: "GET", path: `/api/push`, successStatus: 200, declaredStatuses: [401, 400], empty: false },
+          requestOptions,
+        ),
+      register: (input: PushRegisterInput, requestOptions?: RequestOptions) =>
+        request<PushRegisterOutput>(
+          {
+            method: "PUT",
+            path: `/api/push/subscriptions/${encodeURIComponent(input.id)}`,
+            body: {
+              subscription: input["subscription"],
+              origin: input["origin"],
+              serverKey: input["serverKey"],
+              preferences: input["preferences"],
+              titles: input["titles"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: PushRemoveInput, requestOptions?: RequestOptions) =>
+        request<PushRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/api/push/subscriptions/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      test: (input: PushTestInput, requestOptions?: RequestOptions) =>
+        request<PushTestOutput>(
+          {
+            method: "POST",
+            path: `/api/push/subscriptions/${encodeURIComponent(input.id)}/test`,
+            successStatus: 200,
+            declaredStatuses: [401, 400],
             empty: false,
           },
           requestOptions,

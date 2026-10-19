@@ -71,7 +71,12 @@ export function serveEmbeddedUIEffect(
   if (!file) return Effect.succeed(notFound())
 
   return fs.readFile(file).pipe(
-    Effect.map((body) => embeddedUIResponse(file, body)),
+    Effect.map((body) => {
+      const response = embeddedUIResponse(file, body)
+      return requestPath === "/push-worker.js"
+        ? HttpServerResponse.setHeader(response, "cache-control", "no-cache")
+        : response
+    }),
     Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(notFound())),
   )
 }
@@ -93,6 +98,7 @@ export function serveUIEffect(
       }),
     )
     const headers = proxyResponseHeaders(response.headers)
+    if (path === "/push-worker.js") headers.set("Cache-Control", "no-cache")
 
     if (response.headers["content-type"]?.includes("text/html")) {
       const body = yield* response.text

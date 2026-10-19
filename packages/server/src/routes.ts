@@ -6,6 +6,7 @@ import { EventV2 } from "@opencode-ai/core/event"
 import { Credential } from "@opencode-ai/core/credential"
 import { PermissionSaved } from "@opencode-ai/core/permission/saved"
 import { Profile } from "@opencode-ai/core/profile"
+import { PushNotification } from "@opencode-ai/core/push"
 import { PtyTicket } from "@opencode-ai/core/pty/ticket"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionExecution } from "@opencode-ai/core/session/execution"
@@ -32,6 +33,7 @@ const applicationServices = LayerNode.group([
   SessionV2.node,
   PermissionSaved.node,
   Profile.node,
+  PushNotification.node,
   PtyTicket.node,
   Credential.node,
   PtyEnvironment.node,

@@ -7,6 +7,7 @@ import type { ServerSync } from "./server-sync"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
+import { usePushNotifications } from "@/context/push"
 import { base64Encode } from "@opencode-ai/core/util/encode"
 import { decode64 } from "@/utils/base64"
 import { EventSessionError } from "@opencode-ai/sdk/v2"
@@ -121,6 +122,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
     const navigate = useNavigate()
     const platform = usePlatform()
     const settings = useSettings()
+    const push = usePushNotifications()
     const language = useLanguage()
     const owner = getOwner()
     const states = new Map<ServerScope, { dispose: () => void; state: NotificationState }>()
@@ -153,6 +155,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
             sessionID: activeSession,
             platform,
             settings,
+            push,
             language,
             navigate,
           }),
@@ -218,6 +221,7 @@ function createServerNotificationState(input: {
   sessionID: Accessor<string | undefined>
   platform: ReturnType<typeof usePlatform>
   settings: ReturnType<typeof useSettings>
+  push: ReturnType<typeof usePushNotifications>
   language: ReturnType<typeof useLanguage>
   navigate: (href: string) => void
 }) {
@@ -355,7 +359,7 @@ function createServerNotificationState(input: {
       })
 
       const href = `/${base64Encode(directory)}/session/${sessionID}`
-      if (settings.notifications.agent()) {
+      if (settings.notifications.agent() && !input.push.state.active[ServerConnection.key(input.sdk.server)]) {
         void platform.notify(language.t("notification.session.responseReady.title"), session.title ?? sessionID, () =>
           input.navigate(href),
         )
@@ -390,7 +394,7 @@ function createServerNotificationState(input: {
         session?.title ??
         (typeof error === "string" ? error : language.t("notification.session.error.fallbackDescription"))
       const href = sessionID ? `/${base64Encode(directory)}/session/${sessionID}` : `/${base64Encode(directory)}`
-      if (settings.notifications.errors()) {
+      if (settings.notifications.errors() && !input.push.state.active[ServerConnection.key(input.sdk.server)]) {
         void platform.notify(language.t("notification.session.error.title"), description, () => input.navigate(href))
       }
     })

@@ -696,6 +696,47 @@ const Endpoint18_1 = (raw: RawClient["server.profile"]) => (input: Endpoint18_1I
 
 const adaptGroup18 = (raw: RawClient["server.profile"]) => ({ get: Endpoint18_0(raw), replace: Endpoint18_1(raw) })
 
+const Endpoint19_0 = (raw: RawClient["server.push"]) => () =>
+  raw["push.configuration"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_1Request = Parameters<RawClient["server.push"]["push.register"]>[0]
+type Endpoint19_1Input = {
+  readonly id: Endpoint19_1Request["params"]["id"]
+  readonly subscription: Endpoint19_1Request["payload"]["subscription"]
+  readonly origin: Endpoint19_1Request["payload"]["origin"]
+  readonly serverKey: Endpoint19_1Request["payload"]["serverKey"]
+  readonly preferences: Endpoint19_1Request["payload"]["preferences"]
+  readonly titles: Endpoint19_1Request["payload"]["titles"]
+}
+const Endpoint19_1 = (raw: RawClient["server.push"]) => (input: Endpoint19_1Input) =>
+  raw["push.register"]({
+    params: { id: input["id"] },
+    payload: {
+      subscription: input["subscription"],
+      origin: input["origin"],
+      serverKey: input["serverKey"],
+      preferences: input["preferences"],
+      titles: input["titles"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_2Request = Parameters<RawClient["server.push"]["push.remove"]>[0]
+type Endpoint19_2Input = { readonly id: Endpoint19_2Request["params"]["id"] }
+const Endpoint19_2 = (raw: RawClient["server.push"]) => (input: Endpoint19_2Input) =>
+  raw["push.remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_3Request = Parameters<RawClient["server.push"]["push.test"]>[0]
+type Endpoint19_3Input = { readonly id: Endpoint19_3Request["params"]["id"] }
+const Endpoint19_3 = (raw: RawClient["server.push"]) => (input: Endpoint19_3Input) =>
+  raw["push.test"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup19 = (raw: RawClient["server.push"]) => ({
+  configuration: Endpoint19_0(raw),
+  register: Endpoint19_1(raw),
+  remove: Endpoint19_2(raw),
+  test: Endpoint19_3(raw),
+})
+
 const adaptClient = (raw: RawClient) => ({
   health: adaptGroup0(raw["server.health"]),
   location: adaptGroup1(raw["server.location"]),
@@ -716,6 +757,7 @@ const adaptClient = (raw: RawClient) => ({
   references: adaptGroup16(raw["server.reference"]),
   projectCopies: adaptGroup17(raw["server.projectCopy"]),
   profile: adaptGroup18(raw["server.profile"]),
+  push: adaptGroup19(raw["server.push"]),
 })
 
 export const make = (options?: { readonly baseUrl?: URL | string }) =>

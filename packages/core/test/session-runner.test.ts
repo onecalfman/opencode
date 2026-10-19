@@ -26,6 +26,7 @@ import { SessionV2 } from "@opencode-ai/core/session"
 import { Snapshot } from "@opencode-ai/core/snapshot"
 import { ContextSnapshotDecodeError } from "@opencode-ai/core/session/error"
 import { SessionEvent } from "@opencode-ai/core/session/event"
+import { SessionExecutionEvent } from "@opencode-ai/schema/session-execution-event"
 import { SessionInput } from "@opencode-ai/core/session/input"
 import { SessionMessage } from "@opencode-ai/core/session/message"
 import { Prompt } from "@opencode-ai/core/session/prompt"
@@ -311,6 +312,7 @@ const insertSession = (id: SessionV2.ID) =>
 
 const setup = Effect.gen(function* () {
   const { db } = yield* Database.Service
+  requests.length = 0
   response = []
   systemBaseline = "Initial context"
   systemRemoved = false
@@ -555,6 +557,50 @@ const verifyPartialFlushOnInterruption = (kind: FragmentKind) =>
   })
 
 describe("SessionRunnerLLM", () => {
+  it.effect("publishes one completion after all queued turns and no completion for an empty wake", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      const runner = yield* SessionRunner.Service
+      const finished: unknown[] = []
+      yield* events.listen((event) =>
+        Effect.sync(() => {
+          if (event.type === SessionExecutionEvent.Finished.type) finished.push(event.data)
+        }),
+      )
+      yield* runner.run({ sessionID, force: false })
+      expect(finished).toEqual([])
+      yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "First" }), resume: false })
+      yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Queued" }), delivery: "queue", resume: false })
+      responses = [
+        fragmentFixture("text", "first", ["One"]).completeEvents,
+        fragmentFixture("text", "second", ["Two"]).completeEvents,
+      ]
+      yield* session.resume(sessionID)
+      expect(requests).toHaveLength(2)
+      expect(finished).toEqual([{ sessionID, outcome: "completed" }])
+    }),
+  )
+
+  it.effect("publishes failure instead of completion when provider execution fails", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const session = yield* SessionV2.Service
+      const events = yield* EventV2.Service
+      const finished: unknown[] = []
+      yield* events.listen((event) =>
+        Effect.sync(() => {
+          if (event.type === SessionExecutionEvent.Finished.type) finished.push(event.data)
+        }),
+      )
+      yield* session.prompt({ sessionID, prompt: Prompt.make({ text: "Fail" }), resume: false })
+      streamFailure = providerUnavailable()
+      yield* session.resume(sessionID).pipe(Effect.exit)
+      expect(finished).toEqual([{ sessionID, outcome: "failed" }])
+    }),
+  )
+
   it.effect("advertises and executes a globally attached application tool", () =>
     Effect.gen(function* () {
       yield* setup

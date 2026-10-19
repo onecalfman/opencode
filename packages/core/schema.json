@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "5daa1b02-153c-4453-ba63-69480a820cd0",
+  "id": "fd444432-8981-42de-8891-eae4c04ae9b6",
   "prevIds": [
-    "9113b262-f6d7-4b28-896f-71c715532ee2"
+    "5daa1b02-153c-4453-ba63-69480a820cd0"
   ],
   "ddl": [
     {
@@ -52,6 +52,14 @@
     },
     {
       "name": "project",
+      "entityType": "tables"
+    },
+    {
+      "name": "push_key",
+      "entityType": "tables"
+    },
+    {
+      "name": "push_subscription",
       "entityType": "tables"
     },
     {
@@ -815,6 +823,66 @@
       "name": "commands",
       "entityType": "columns",
       "table": "project"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "public_key",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "private_key",
+      "entityType": "columns",
+      "table": "push_key"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "push_subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "endpoint",
+      "entityType": "columns",
+      "table": "push_subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "registration",
+      "entityType": "columns",
+      "table": "push_subscription"
     },
     {
       "type": "text",
@@ -1846,6 +1914,24 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "push_key_pk",
+      "table": "push_key",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "push_subscription_pk",
+      "table": "push_subscription",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "message_pk",
       "table": "message",
       "entityType": "pks"
@@ -2213,6 +2299,15 @@
       "name": "todo_session_idx",
       "entityType": "indexes",
       "table": "todo"
+    },
+    {
+      "columns": [
+        "endpoint"
+      ],
+      "nameExplicit": false,
+      "name": "push_subscription_endpoint_unique",
+      "entityType": "uniques",
+      "table": "push_subscription"
     },
     {
       "value": "\"id\" = 1",

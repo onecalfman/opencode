@@ -428,16 +428,23 @@ describe("HttpApi UI fallback", () => {
   // `<link rel="manifest">` request is not under page-auth control), so the
   // server returning 401 breaks PWA install. These specific public assets
   // should bypass auth.
-  it.live("serves the PWA manifest without auth even when a server password is set", () =>
+  it.live("serves PWA assets and the push worker without auth when a server password is set", () =>
     Effect.gen(function* () {
-      for (const path of ["/site.webmanifest", "/web-app-manifest-192x192.png", "/web-app-manifest-512x512.png"]) {
+      for (const path of [
+        "/site.webmanifest",
+        "/web-app-manifest-192x192.png",
+        "/web-app-manifest-512x512.png",
+        "/push-worker.js",
+        "/favicon-96x96-v3.png",
+      ]) {
         const response = yield* uiApp({
           password: "secret",
           username: "opencode",
           disableEmbeddedWebUi: true,
           client: httpClient(new Response("ok")),
         }).request(path)
-        expect(response.status).not.toBe(401)
+        expect(response.status).toBe(200)
+        if (path === "/push-worker.js") expect(response.headers.get("cache-control")).toBe("no-cache")
       }
     }),
   )

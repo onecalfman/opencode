@@ -15,3 +15,6 @@
 
 /*.css
   Content-Type: text/css
+
+/push-worker.js
+  Cache-Control: no-cache

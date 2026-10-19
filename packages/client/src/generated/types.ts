@@ -2871,3 +2871,99 @@ export type ProfileReplaceOutput = {
     }>
   }
 }
+
+export type PushConfigurationOutput = { readonly publicKey: string }
+
+export type PushRegisterInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly subscription: {
+    readonly subscription: {
+      readonly endpoint: string
+      readonly keys: { readonly p256dh: string; readonly auth: string }
+    }
+    readonly origin: string
+    readonly serverKey: string
+    readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+    readonly titles: {
+      readonly agent: string
+      readonly permission: string
+      readonly question: string
+      readonly errors: string
+      readonly test: string
+    }
+  }["subscription"]
+  readonly origin: {
+    readonly subscription: {
+      readonly endpoint: string
+      readonly keys: { readonly p256dh: string; readonly auth: string }
+    }
+    readonly origin: string
+    readonly serverKey: string
+    readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+    readonly titles: {
+      readonly agent: string
+      readonly permission: string
+      readonly question: string
+      readonly errors: string
+      readonly test: string
+    }
+  }["origin"]
+  readonly serverKey: {
+    readonly subscription: {
+      readonly endpoint: string
+      readonly keys: { readonly p256dh: string; readonly auth: string }
+    }
+    readonly origin: string
+    readonly serverKey: string
+    readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+    readonly titles: {
+      readonly agent: string
+      readonly permission: string
+      readonly question: string
+      readonly errors: string
+      readonly test: string
+    }
+  }["serverKey"]
+  readonly preferences: {
+    readonly subscription: {
+      readonly endpoint: string
+      readonly keys: { readonly p256dh: string; readonly auth: string }
+    }
+    readonly origin: string
+    readonly serverKey: string
+    readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+    readonly titles: {
+      readonly agent: string
+      readonly permission: string
+      readonly question: string
+      readonly errors: string
+      readonly test: string
+    }
+  }["preferences"]
+  readonly titles: {
+    readonly subscription: {
+      readonly endpoint: string
+      readonly keys: { readonly p256dh: string; readonly auth: string }
+    }
+    readonly origin: string
+    readonly serverKey: string
+    readonly preferences: { readonly agent: boolean; readonly permissions: boolean; readonly errors: boolean }
+    readonly titles: {
+      readonly agent: string
+      readonly permission: string
+      readonly question: string
+      readonly errors: string
+      readonly test: string
+    }
+  }["titles"]
+}
+
+export type PushRegisterOutput = boolean
+
+export type PushRemoveInput = { readonly id: { readonly id: string }["id"] }
+
+export type PushRemoveOutput = boolean
+
+export type PushTestInput = { readonly id: { readonly id: string }["id"] }
+
+export type PushTestOutput = boolean

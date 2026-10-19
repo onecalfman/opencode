@@ -28,6 +28,7 @@ import { Dialog } from "@opencode-ai/ui/dialog"
 import { getFilename } from "@opencode-ai/core/util/path"
 import { Session } from "@opencode-ai/sdk/v2/client"
 import { usePlatform } from "@/context/platform"
+import { usePushNotifications } from "@/context/push"
 import { useSettings } from "@/context/settings"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
@@ -110,6 +111,7 @@ export default function LegacyLayout(props: ParentProps) {
   const layout = useLayout()
   const layoutReady = createMemo(() => layout.ready())
   const platform = usePlatform()
+  const push = usePushNotifications()
   const pickDirectory = useDirectoryPicker()
   const settings = useSettings()
   const server = useServer()
@@ -445,13 +447,13 @@ export default function LegacyLayout(props: ParentProps) {
           if (settings.sounds.permissionsEnabled()) {
             void playSoundById(settings.sounds.permissions())
           }
-          if (settings.notifications.permissions()) {
+          if (settings.notifications.permissions() && !push.state.active[ServerConnection.key(serverSDK().server)]) {
             void platform.notify(title, description, () => navigate(href))
           }
         }
 
         if (e.details.type === "question.asked") {
-          if (settings.notifications.agent()) {
+          if (settings.notifications.agent() && !push.state.active[ServerConnection.key(serverSDK().server)]) {
             void platform.notify(title, description, () => navigate(href))
           }
         }
