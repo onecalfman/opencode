@@ -4,7 +4,7 @@ import { fileURLToPath } from "url"
 import path from "path"
 import { SqliteClient } from "@effect/sql-sqlite-bun"
 import { EffectDrizzleSqlite } from "@opencode/core/database/drizzle"
-import { Deferred, Effect, Fiber, Layer } from "effect"
+import { Cause, Deferred, Effect, Fiber, Layer } from "effect"
 import { Reactivity } from "effect/reactivity"
 import { SqlClient, Statement } from "effect/sql"
 import { sql } from "drizzle-orm"
@@ -22,6 +22,7 @@ import sessionInboxMigration from "@opencode/core/database/migration/20260812181
 import sessionViewedStateMigration from "@opencode/core/database/migration/20260819222447_session_viewed_state"
 import azureCliCredentialMigration from "@opencode/core/database/migration/20261007190000_azure_cli_external_credential"
 import { Global } from "@opencode/util/global"
+import { V1Migration } from "@opencode/core/database/v1-migration"
 
 const run = <A, E>(
   effect: Effect.Effect<A, E, SqlClient.SqlClient | Global.Service>,
@@ -402,6 +403,74 @@ describe("DatabaseMigration", () => {
           name: "session",
         })
         expect(yield* db.get(sql`SELECT id FROM migration WHERE id = ${previousV2Migration.id}`)).toBeUndefined()
+      }),
+    )
+  })
+
+  test("rejects older projection-only history before dropping its source rows", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+        yield* db.run(sql`CREATE TABLE migration (id text PRIMARY KEY, time_completed integer NOT NULL)`)
+        yield* db.run(sql`CREATE TABLE session (id text PRIMARY KEY)`)
+        yield* db.run(
+          sql`CREATE TABLE session_message (id text PRIMARY KEY, session_id text NOT NULL, type text NOT NULL, seq integer NOT NULL, data text NOT NULL)`,
+        )
+        yield* db.run(sql`CREATE TABLE message (id text PRIMARY KEY, session_id text NOT NULL)`)
+        yield* db.run(sql`INSERT INTO session VALUES ('session')`)
+        yield* db.run(
+          sql`INSERT INTO session_message VALUES ('projected', 'session', 'user', 0, '{"text":"preserve me"}')`,
+        )
+        const result = yield* Effect.exit(DatabaseMigration.applyOnly(db, [previousV2Migration]))
+        if (result._tag === "Success") throw new Error("Migration accepted unsupported projection-only history")
+        expect(Cause.pretty(result.cause)).toContain("projection-only session history")
+        expect(yield* db.get(sql`SELECT id, data FROM session_message`)).toEqual({
+          id: "projected",
+          data: '{"text":"preserve me"}',
+        })
+        expect(yield* db.get(sql`SELECT id FROM migration WHERE id = ${previousV2Migration.id}`)).toBeUndefined()
+      }),
+    )
+  })
+
+  test("preserves native-only sessions while converting neighboring V1 history, including exact retries", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+        const split = migrations.findIndex((item) => item.id === previousV2Migration.id)
+        yield* DatabaseMigration.applyOnly(db, migrations.slice(0, split))
+        yield* db.run(
+          sql`INSERT INTO project (id, worktree, time_created, time_updated, sandboxes) VALUES ('project', '/repo', 1, 2, '[]')`,
+        )
+        yield* db.run(sql`INSERT INTO session (id, project_id, slug, directory, title, version, metadata, cost, tokens_input, time_created, time_updated)
+        VALUES ('ses_early', 'project', 'early', '/repo', 'Early native', '1', '{"origin":"linear"}', 12.5, 7, 1, 2),
+               ('ses_legacy', 'project', 'legacy', '/repo', 'Legacy', '1', NULL, 0, 0, 1, 2)`)
+        yield* db.run(sql`INSERT INTO session_message (id, session_id, type, seq, time_created, time_updated, data)
+        VALUES ('msg_early', 'ses_early', 'user', 4, 1, 2, '{"text":"preserve me","time":{"created":1}}')`)
+        yield* db.run(
+          sql`INSERT INTO event_sequence (aggregate_id, seq, owner_id) VALUES ('ses_early', 9, 'old-owner')`,
+        )
+        yield* db.run(sql`INSERT INTO message (id, session_id, time_created, time_updated, data)
+        VALUES ('msg_legacy', 'ses_legacy', 1, 2, '{"role":"user","time":{"created":1},"agent":"build","model":{"providerID":"fixture","modelID":"fixture"}}')`)
+        yield* db.run(sql`INSERT INTO part (id, message_id, session_id, time_created, time_updated, data)
+        VALUES ('prt_legacy', 'msg_legacy', 'ses_legacy', 1, 2, '{"type":"text","text":"convert me"}')`)
+        yield* DatabaseMigration.applyOnly(db, migrations.slice(split))
+        yield* V1Migration.run().pipe(Effect.provideService(Database.Service, { db }))
+        yield* V1Migration.run().pipe(Effect.provideService(Database.Service, { db }))
+        expect(yield* db.all(sql`SELECT id, seq, data FROM session_message ORDER BY id`)).toEqual([
+          { id: "msg_early", seq: 4, data: '{"text":"preserve me","time":{"created":1}}' },
+          { id: "msg_legacy", seq: 0, data: '{"text":"convert me","time":{"created":1}}' },
+        ])
+        expect(yield* db.get(sql`SELECT metadata, cost, tokens_input FROM session_v2 WHERE id = 'ses_early'`)).toEqual({
+          metadata: '{"origin":"linear"}',
+          cost: 12.5,
+          tokens_input: 7,
+        })
+        expect(yield* db.get(sql`SELECT seq, owner_id FROM event_sequence WHERE aggregate_id = 'ses_early'`)).toEqual({
+          seq: 9,
+          owner_id: null,
+        })
+        expect(yield* db.get(sql`SELECT COUNT(*) AS count FROM session`)).toEqual({ count: 2 })
       }),
     )
   })

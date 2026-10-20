@@ -5,7 +5,7 @@ import { createStore, produce } from "solid-js/store"
 import { Persist, persisted, removePersisted, draftPersistedKeys } from "@/runtime/persistence/storage"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useExtensionServers } from "@/runtime/extension/servers"
-import { batch, createEffect, getOwner, onCleanup, startTransition } from "solid-js"
+import { createEffect, getOwner, onCleanup, startTransition } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { usePlatform } from "@/runtime/platform/platform"
 import { uuid } from "@/runtime/persistence/uuid"
@@ -667,7 +667,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
             removeRegions(tabKey(tab))
           })
           const current = store.find((tab) => tabKey(tab) === recentKey())
-          batch(() => {
+          void startTransition(() => {
             setStore(() => next)
             if (current?.type === "session" && !keys.has(tabKey(current))) {
               setRecentKey(undefined)

@@ -58,7 +58,8 @@ Terminal.prototype.open = function (element) {
       probe.draws++
 
       if (hidden) probe.hiddenDraws++
-      draw.apply(this, args)
+      // eslint-disable-next-line no-restricted-globals -- Forward all native drawImage overloads with their original receiver and arguments.
+      Reflect.apply(draw, this, args)
     }
   }
 }

@@ -1,5 +1,6 @@
 import { Effect, Option, Predicate, Schema, SchemaGetter } from "effect"
 import { Persistence } from "@/runtime/persistence/schema"
+import { ProfileOperation } from "./server-profile"
 
 export const ServerKey = Schema.String.pipe(Schema.brand("ServerConnection.Key"))
 
@@ -41,6 +42,8 @@ const Projects = Persistence.record(ProjectList)
 const LastProject = Persistence.record(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeed(Option.none()))))
 
 const State = Persistence.struct({
+  profileImported: Schema.optional(Schema.Boolean),
+  profilePending: Schema.optional(Persistence.array(ProfileOperation)),
   list: Persistence.array(StoredServer),
   hidden: Schema.Record(
     Schema.String,

@@ -1,8 +1,10 @@
-import { Effect } from "effect"
+import { Effect, Option, Schema } from "effect"
 import { sql } from "drizzle-orm"
 import type { DatabaseMigration } from "../migration.js"
+import { SessionMessage } from "@opencode/schema/session-message"
 
 const previousV2Marker = "20260730195856_optional_session_title"
+export const retainedSessionsKey = "migration.pre-split-v2"
 
 const migration: DatabaseMigration.Migration = {
   id: "20260804233008_loose_psylocke",
@@ -36,6 +38,56 @@ const migration: DatabaseMigration.Migration = {
         yield* tx.run(`DROP TABLE IF EXISTS \`session_context_epoch\`;`)
         yield* tx.run(`DROP TABLE IF EXISTS \`session_input\`;`)
         return
+      }
+
+      // Earlier customized builds can contain current-format sessions alongside V1 history.
+      // Only a complete native-only session is unambiguous; mixed histories still require a dedicated import.
+      const retained = yield* tx.all<{ session_id: string }>(sql`
+        SELECT DISTINCT session_id FROM session_message
+        WHERE NOT EXISTS (
+          SELECT 1 FROM message
+          WHERE message.id = session_message.id AND message.session_id = session_message.session_id
+        )
+      `)
+      const decode = Schema.decodeUnknownOption(
+        Schema.Struct({
+          id: SessionMessage.ID,
+          type: Schema.String,
+          seq: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+          data: Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+        }),
+      )
+      const validate = Schema.decodeUnknownOption(SessionMessage.Info)
+      for (const item of retained) {
+        const legacy = yield* tx.get(sql`SELECT 1 FROM message WHERE session_id = ${item.session_id} LIMIT 1`)
+        if (legacy)
+          return yield* Effect.die(
+            new Error("Older database contains projection-only session history mixed with V1 history"),
+          )
+        const messages = yield* tx.all(
+          sql`SELECT id, type, seq, data FROM session_message WHERE session_id = ${item.session_id}`,
+        )
+        for (const row of messages) {
+          const message = decode(row)
+          if (
+            Option.isNone(message) ||
+            Option.isNone(
+              validate({
+                ...message.value.data,
+                id: message.value.id,
+                type: message.value.type,
+              }),
+            )
+          )
+            return yield* Effect.die(new Error("Older database contains unsupported projection-only session history"))
+        }
+        const pending = yield* tx.get(
+          sql`SELECT 1 FROM session_input WHERE session_id = ${item.session_id} AND promoted_seq IS NULL LIMIT 1`,
+        )
+        if (pending)
+          return yield* Effect.die(
+            new Error("Older database contains projection-only session history with pending inputs"),
+          )
       }
 
       yield* tx.run(`
@@ -123,6 +175,31 @@ const migration: DatabaseMigration.Migration = {
           CONSTRAINT \`fk_session_v2_project_id_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`project\`(\`id\`) ON DELETE CASCADE
         );
       `)
+      for (const item of retained) {
+        yield* tx.run(sql`
+          INSERT INTO session_v2 (
+            id, project_id, workspace_id, parent_id, slug, directory, path, title, version, share_url,
+            summary_additions, summary_deletions, summary_files, summary_diffs, metadata, cost,
+            tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write,
+            revert, permission, agent, model, time_created, time_updated, time_compacting, time_archived
+          ) SELECT
+            id, project_id, workspace_id, parent_id, slug, directory, path, title, version, share_url,
+            summary_additions, summary_deletions, summary_files, summary_diffs, metadata, cost,
+            tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write,
+            revert, permission, agent, model, time_created, time_updated, time_compacting, time_archived
+          FROM session WHERE id = ${item.session_id}
+        `)
+        yield* tx.run(sql`
+          INSERT INTO event_sequence (aggregate_id, seq, owner_id)
+          SELECT ${item.session_id}, MAX(seq), NULL FROM session_message WHERE session_id = ${item.session_id}
+          ON CONFLICT (aggregate_id) DO UPDATE SET seq = MAX(event_sequence.seq, excluded.seq), owner_id = NULL
+        `)
+      }
+      if (retained.length)
+        yield* tx.run(sql`
+        INSERT INTO kv (key, value, time_created, time_updated)
+        VALUES (${retainedSessionsKey}, ${JSON.stringify(retained.map((item) => item.session_id))}, ${Date.now()}, ${Date.now()})
+      `)
       yield* tx.run(`ALTER TABLE \`event\` ADD \`created\` integer DEFAULT 0 NOT NULL;`)
       yield* tx.run(`
         CREATE TABLE IF NOT EXISTS \`__new_session_message\` (
@@ -135,6 +212,11 @@ const migration: DatabaseMigration.Migration = {
           \`data\` text NOT NULL,
           CONSTRAINT \`fk_session_message_session_id_session_v2_id_fk\` FOREIGN KEY (\`session_id\`) REFERENCES \`session_v2\`(\`id\`) ON DELETE CASCADE
         );
+      `)
+      for (const item of retained)
+        yield* tx.run(sql`
+        INSERT INTO __new_session_message (id, session_id, type, seq, time_created, time_updated, data)
+        SELECT id, session_id, type, seq, time_created, time_updated, data FROM session_message WHERE session_id = ${item.session_id}
       `)
       yield* tx.run(`DROP TABLE \`session_message\`;`)
       yield* tx.run(`ALTER TABLE \`__new_session_message\` RENAME TO \`session_message\`;`)

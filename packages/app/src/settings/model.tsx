@@ -227,6 +227,7 @@ export const settingsPersistence = Persistence.migrate(
   Persistence.legacy({
     general: Persistence.optional(
       Persistence.legacy({
+        tabLayout: Persistence.optional(Schema.Literals(["horizontal", "vertical"])),
         // Keep invalid explicit values distinct from absent values so legacy preferences cannot replace them.
         timelineDetail: Schema.optional(
           Schema.NullOr(
@@ -248,15 +249,22 @@ export const settingsPersistence = Persistence.migrate(
         editToolPartsExpanded: Persistence.optional(Schema.Boolean),
       }),
     ),
+    appearance: Persistence.optional(
+      Persistence.legacy({ tabLayout: Persistence.optional(Schema.Literals(["horizontal", "vertical"])) }),
+    ),
   }).pipe(
     Schema.decode({
       decode: SchemaGetter.transform((value) => {
         const general = value.general
+        const migrated =
+          !value.appearance?.tabLayout && general?.tabLayout
+            ? { ...value, appearance: { ...value.appearance, tabLayout: general.tabLayout } }
+            : value
 
-        if (!general || general.timelineDetail !== undefined) return value
+        if (!general || general.timelineDetail !== undefined) return migrated
 
         return {
-          ...value,
+          ...migrated,
           general: {
             ...general,
             timelineDetail: {

@@ -1,4 +1,5 @@
 import type { ProfileDocument, ProfileServer } from "@opencode/client/promise"
+import { Schema } from "effect"
 
 type Connection = {
   type: string
@@ -22,14 +23,31 @@ export type ProfileLocalServer = {
 
 export type ProfileLocalProject = { worktree: string; expanded: boolean }
 
-export type ProfileOperation =
-  | { type: "server.set"; url: string; name?: string }
-  | { type: "server.remove"; url: string }
-  | { type: "project.open"; url: string; worktree: string }
-  | { type: "project.remove"; url: string; worktree: string }
-  | { type: "project.move"; url: string; worktree: string; toIndex: number }
-  | { type: "session.merge"; url: string; sessionIDs: string[] }
-  | { type: "session.update"; url: string; previousSessionIDs: string[]; sessionIDs: string[]; inputAt?: number }
+export const ProfileOperation = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("server.set"), url: Schema.String, name: Schema.optional(Schema.String) }),
+  Schema.Struct({ type: Schema.Literal("server.remove"), url: Schema.String }),
+  Schema.Struct({ type: Schema.Literal("project.open"), url: Schema.String, worktree: Schema.String }),
+  Schema.Struct({ type: Schema.Literal("project.remove"), url: Schema.String, worktree: Schema.String }),
+  Schema.Struct({
+    type: Schema.Literal("project.move"),
+    url: Schema.String,
+    worktree: Schema.String,
+    toIndex: Schema.Number,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("session.merge"),
+    url: Schema.String,
+    sessionIDs: Schema.mutable(Schema.Array(Schema.String)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("session.update"),
+    url: Schema.String,
+    previousSessionIDs: Schema.mutable(Schema.Array(Schema.String)),
+    sessionIDs: Schema.mutable(Schema.Array(Schema.String)),
+    inputAt: Schema.optional(Schema.Number),
+  }),
+])
+export type ProfileOperation = typeof ProfileOperation.Type
 
 export function portableServerUrl(connection: Connection): string | undefined {
   if (connection.type !== "http") return undefined

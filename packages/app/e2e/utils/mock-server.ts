@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test"
 import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
 import { Permission } from "@opencode/schema/permission"
 import { Worktree } from "@opencode/schema/worktree"
+import { Profile } from "@opencode/schema/profile"
 import { Duration, Effect, Layer, Option, Predicate, Schema } from "effect"
 import { HttpRouter, HttpServer, HttpServerResponse } from "effect/http"
 import { HttpApiBuilder, HttpApiSchema } from "effect/http-api"
@@ -42,6 +43,8 @@ export type MockFileContent =
   | undefined
 
 export interface MockServerConfig {
+  // Shared across pages when a scenario models one backend serving several devices.
+  profile?: { current: Profile.Snapshot; offline?: boolean }
   server?: string
   provider: Resolvable<MockProviderCatalog>
   integrations?: Resolvable<unknown[]>
@@ -714,6 +717,9 @@ function mockHandlers(
   const noContent = Effect.succeed(HttpApiSchema.NoContent.make())
   const delay = config.messageDelay === undefined ? Effect.void : Effect.sleep(Duration.millis(config.messageDelay))
   const configEntries = config.configEntries ?? []
+  const profile = config.profile ?? {
+    current: Profile.Snapshot.make({ revision: 0, profile: { version: 1, servers: [] } }),
+  }
 
   const ptyEnabled = Effect.suspend(() =>
     config.pty ? Effect.void : Effect.fail(new MockNotFound({ message: "PTY is not enabled for this mock server" })),
@@ -765,6 +771,25 @@ function mockHandlers(
 
   return HttpApiBuilder.group(MockApi, "mock", (handlers) =>
     handlers
+      .handle("profileGet", () =>
+        Effect.suspend(() =>
+          profile.offline
+            ? Effect.fail(new MockInternal({ message: "Profile temporarily unavailable" }))
+            : Effect.succeed(profile.current),
+        ),
+      )
+      .handle("profileReplace", ({ payload }) =>
+        Effect.gen(function* () {
+          if (payload.revision !== profile.current.revision)
+            return yield* new Profile.RevisionConflict({
+              message: "UI profile revision conflict",
+              expectedRevision: payload.revision,
+              actualRevision: profile.current.revision,
+            })
+          profile.current = { revision: payload.revision + 1, profile: payload.profile }
+          return profile.current
+        }),
+      )
       .handleRaw("event", () => {
         const events = config.events?.()
         const retry = config.eventRetry === undefined ? "" : `retry: ${config.eventRetry}\n\n`

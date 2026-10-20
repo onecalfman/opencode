@@ -679,7 +679,9 @@ test.describe("Working", () => {
     await expect(working).toBeVisible()
 
     await timeline.send(partUpdated(toolPart("prt_read_four", "read", "running", { path: "src/four.ts" })))
-    await expect(group.locator('[data-slot="basic-tool-tool-subtitle"]')).toHaveText("one.ts, two.ts, three.ts, four.ts")
+    await expect(group.locator('[data-slot="basic-tool-tool-subtitle"]')).toHaveText(
+      "one.ts, two.ts, three.ts, four.ts",
+    )
     await expect(working).toBeVisible()
 
     await timeline.send(partUpdated(toolPart("prt_read_four", "read", "completed", { path: "src/four.ts" })))
@@ -1359,7 +1361,9 @@ test.describe("background shortcut", () => {
 
     expect(breadcrumbOrder).toEqual(["session-title-parent", "session-title-child"])
     await expect(header.locator('[data-slot="session-title-separator"]')).toHaveCount(1)
-    await expect(header.getByRole("heading").getByRole("button", { name: "Draft TUI proposal +2 running" })).toBeEnabled()
+    await expect(
+      header.getByRole("heading").getByRole("button", { name: "Draft TUI proposal +2 running" }),
+    ).toBeEnabled()
 
     await trigger.click()
     await expect(list.getByRole("menuitem")).toHaveText([
@@ -1814,8 +1818,8 @@ function pauseExitAnimations(locator: Locator) {
   return locator.evaluateHandle((element) => {
     const animations: Animation[] = []
 
-    const pause = (event: AnimationEvent) => {
-      if (event.target !== element || event.animationName !== "exit") return
+    const pause = (event: Event) => {
+      if (!(event instanceof AnimationEvent) || event.target !== element || event.animationName !== "exit") return
 
       animations.push(...element.getAnimations())
       animations.forEach((animation) => animation.pause())

@@ -5,6 +5,9 @@ import { ServerConnection, useServers } from "./registry"
 import { useTabs } from "@/shell/tabs/tabs"
 import { usePlatform } from "@/runtime/platform/platform"
 import { createApiForServer } from "./api"
+import { persisted, Persist } from "@/runtime/persistence/storage"
+import { Persistence } from "@/runtime/persistence/schema"
+import { Schema } from "effect"
 import { profileSessionIDs, type ProfileSessionTarget } from "./tab-profile"
 import {
   latestSessionInputAt,
@@ -13,7 +16,7 @@ import {
   portableServerUrl,
   replayProfileOperations,
   sameProfile,
-  type ProfileOperation,
+  ProfileOperation,
 } from "./server-profile"
 
 export function ProfileSync() {
@@ -21,6 +24,15 @@ export function ProfileSync() {
   const global = useGlobal()
   const tabs = useTabs()
   const platform = usePlatform()
+  const [checkpoint, setCheckpoint, , checkpointReady] = persisted(
+    Persist.global("profile-sync.v1"),
+    Persistence.struct({
+      homes: Persistence.record(
+        Persistence.struct({ imported: Schema.Boolean, operations: Persistence.array(ProfileOperation) }),
+      ),
+    }),
+    { homes: {} },
+  )
   const homeConnection = createMemo(
     () =>
       servers.list.find((connection) => ServerConnection.key(connection) === servers.profile.home) ??
@@ -28,7 +40,7 @@ export function ProfileSync() {
   )
   const identity = createMemo(() => {
     const home = homeConnection()
-    return servers.hydrated() && tabs.ready() && home
+    return servers.hydrated() && tabs.ready() && checkpointReady() && home
       ? JSON.stringify([ServerConnection.key(home), home.http.url, home.http.password])
       : undefined
   })
@@ -64,24 +76,31 @@ export function ProfileSync() {
         }
       }
       let observed = untrack(read)
-      const operations: ProfileOperation[] = observed.servers.flatMap((entry) =>
-        entry.openSessionInputAt
-          ? [
-              {
-                type: "session.update",
-                url: entry.url,
-                previousSessionIDs: [],
-                sessionIDs: entry.openSessionIDs ?? [],
-                inputAt: entry.openSessionInputAt,
-              },
-            ]
-          : [],
-      )
+      const homeKey = ServerConnection.key(home)
+      const saved = checkpoint.homes[homeKey]
+      const operations: ProfileOperation[] = [
+        ...(saved?.operations ?? servers.profile.pending),
+        ...observed.servers.flatMap<ProfileOperation>((entry) =>
+          entry.openSessionInputAt
+            ? [
+                {
+                  type: "session.update",
+                  url: entry.url,
+                  previousSessionIDs: [],
+                  sessionIDs: entry.openSessionIDs ?? [],
+                  inputAt: entry.openSessionInputAt,
+                },
+              ]
+            : [],
+        ),
+      ]
       let latest: ProfileSnapshot | undefined
       let running: Promise<void> | undefined
       let disposed = false
-      let seeded = false
+      let seeded = saved?.imported ?? servers.profile.imported
       let applying = false
+      const save = () =>
+        untrack(() => setCheckpoint("homes", homeKey, { imported: seeded, operations: [...operations] }))
 
       const apply = (snapshot: ProfileSnapshot) => {
         if (disposed) return
@@ -104,26 +123,36 @@ export function ProfileSync() {
             if (disposed) return
             const count = operations.length
             const local = untrack(read)
-            const base = seeded
+            const baseline = seeded
               ? normalizePortableProfile(remote.profile)
               : mergePortableProfiles(normalizePortableProfile(remote.profile), local)
-            const pending = operations
-              .slice(0, count)
-              .map((operation) =>
-                operation.type === "session.update"
+            const base = {
+              ...baseline,
+              servers: baseline.servers.map((entry) =>
+                entry.openSessionIDs === undefined
                   ? {
-                      ...operation,
-                      inputAt: latestSessionInputAt(
-                        operation.inputAt,
-                        remote.profile.servers.find((entry) => entry.url === operation.url)?.openSessionInputAt,
-                      ),
+                      ...entry,
+                      openSessionIDs: local.servers.find((item) => item.url === entry.url)?.openSessionIDs ?? [],
                     }
-                  : operation,
-              )
+                  : entry,
+              ),
+            }
+            const pending = operations.slice(0, count).map((operation) =>
+              operation.type === "session.update"
+                ? {
+                    ...operation,
+                    inputAt: latestSessionInputAt(
+                      operation.inputAt,
+                      remote.profile.servers.find((entry) => entry.url === operation.url)?.openSessionInputAt,
+                    ),
+                  }
+                : operation,
+            )
             const document = replayProfileOperations(base, pending)
             if (sameProfile(document, remote.profile)) {
               operations.splice(0, count)
               seeded = true
+              save()
               apply(remote)
               synced = true
               return
@@ -132,6 +161,7 @@ export function ProfileSync() {
               const updated = await api.profile.replace({ revision: remote.revision, profile: document })
               operations.splice(0, count)
               seeded = true
+              save()
               if (operations.length === 0) apply(updated)
               else latest = updated
               synced = true
@@ -187,6 +217,7 @@ export function ProfileSync() {
               ...(entry.openSessionInputAt ? { inputAt: entry.openSessionInputAt } : {}),
             })
         })
+        save()
         untrack(() => void refresh())
       })
 

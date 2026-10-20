@@ -320,6 +320,7 @@ export function TitlebarTabStrip(props: {
     )
   }
   const projectKey = (tab: Tab) => projectForTab(tab)?.worktree ?? tabKey(tab)
+  // Render groups by these stable server/worktree keys so metadata refreshes retain tab hover and drag state.
   const groups = createMemo(() => groupTabsByServerAndProject(props.tabs, projectKey))
   const orderedTabs = createMemo(() =>
     vertical() ? groups().flatMap((group) => group.projects.flatMap((project) => project.tabs)) : props.tabs,
@@ -529,30 +530,37 @@ export function TitlebarTabStrip(props: {
             ref={listRef}
           >
             <Show when={vertical()} fallback={<For each={props.tabs}>{renderTab}</For>}>
-              <For each={groups()}>
-                {(group) => (
-                  <section class="flex min-w-0 flex-col gap-1 pb-3">
-                    <Show when={groups().length > 1}>
-                      <h2 class="truncate px-1.5 text-[11px] font-semibold leading-4 text-v2-text-text-muted">
-                        <bdi dir="auto">
-                          {serverName(
-                            global.servers.list().find((item) => ServerConnection.key(item) === group.server),
-                          ) || group.server}
-                        </bdi>
-                      </h2>
-                    </Show>
-                    <For each={group.projects}>
-                      {(project) => (
-                        <section class="flex min-w-0 flex-col gap-1">
-                          <h3 class="truncate px-1.5 text-[11px] font-medium leading-4 text-v2-text-text-muted">
-                            <bdi dir="auto">{projectLabel(project.tabs)}</bdi>
-                          </h3>
-                          <For each={project.tabs}>{renderTab}</For>
-                        </section>
-                      )}
-                    </For>
-                  </section>
-                )}
+              <For each={groups().map((group) => group.server)}>
+                {(server) => {
+                  const projects = createMemo(() => groups().find((group) => group.server === server)?.projects ?? [])
+                  return (
+                    <section class="flex min-w-0 flex-col gap-1 pb-3">
+                      <Show when={groups().length > 1}>
+                        <h2 class="truncate px-1.5 text-[11px] font-semibold leading-4 text-v2-text-text-muted">
+                          <bdi dir="auto">
+                            {serverName(global.servers.list().find((item) => ServerConnection.key(item) === server)) ||
+                              server}
+                          </bdi>
+                        </h2>
+                      </Show>
+                      <For each={projects().map((project) => project.project)}>
+                        {(worktree) => {
+                          const items = createMemo(
+                            () => projects().find((project) => project.project === worktree)?.tabs ?? [],
+                          )
+                          return (
+                            <section class="flex min-w-0 flex-col gap-1">
+                              <h3 class="truncate px-1.5 text-[11px] font-medium leading-4 text-v2-text-text-muted">
+                                <bdi dir="auto">{projectLabel(items())}</bdi>
+                              </h3>
+                              <For each={items()}>{renderTab}</For>
+                            </section>
+                          )
+                        }}
+                      </For>
+                    </section>
+                  )
+                }}
               </For>
             </Show>
           </div>

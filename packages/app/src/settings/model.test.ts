@@ -37,6 +37,17 @@ describe("settings timeline detail migration", () => {
 })
 
 describe("settings schema", () => {
+  test.each([
+    ["vertical", undefined, "vertical"],
+    ["horizontal", undefined, "horizontal"],
+    ["vertical", "horizontal", "horizontal"],
+  ] as const)("migrates the custom V1 tab layout %s with native preference %s", (legacy, native, expected) => {
+    const settings = decode({ general: { tabLayout: legacy }, appearance: { tabLayout: native, fontSize: 18 } })
+    expect(settings.appearance.tabLayout).toBe(expected)
+    expect(settings.appearance.fontSize).toBe(18)
+    expect(decode(encode(settings))).toEqual(settings)
+  })
+
   test("keeps the values extensions copy out once and discards retired preferences", () => {
     const settings = decode({
       general: {

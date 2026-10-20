@@ -14,6 +14,7 @@ import { existsSync } from "node:fs"
 import path from "node:path"
 import type { Database as SQLiteDatabase } from "bun:sqlite"
 import { Project } from "@opencode/schema/project"
+import { retainedSessionsKey } from "./migration/20260804233008_loose_psylocke.js"
 
 export type SourceMessage = {
   readonly id: string
@@ -47,6 +48,11 @@ export type Warning = {
 }
 
 export type TransformResult = {
+  readonly omitted: ReadonlyArray<{
+    readonly messageID: string
+    readonly reason: "compaction-summary" | "failed-compaction" | "incomplete-compaction" | "subtask"
+    readonly targetMessageID?: string
+  }>
   readonly messages: ReadonlyArray<{
     readonly id: string
     readonly session_id: string
@@ -223,6 +229,7 @@ let runtimeState: RuntimeState = { status: "idle" }
 
 export function transformSession(input: TransformInput): TransformResult {
   const warnings: Warning[] = []
+  const omitted: Array<TransformResult["omitted"][number]> = []
   const messages = input.messages
     .map((row) => {
       const value = Option.getOrUndefined(decodeJson(row.data))
@@ -285,9 +292,17 @@ export function transformSession(input: TransformInput): TransformResult {
               candidate.value.parentID === item.row.id &&
               candidate.value.summary === true,
           )
-          if (!pairedSummary) return []
+          if (!pairedSummary) {
+            omitted.push({ messageID: item.row.id, reason: "incomplete-compaction" })
+            return []
+          }
           paired.add(pairedSummary.row.id)
-          if (pairedSummary.value.error || pairedSummary.value.time.completed === undefined) return []
+          if (pairedSummary.value.error || pairedSummary.value.time.completed === undefined) {
+            const reason = pairedSummary.value.error ? "failed-compaction" : "incomplete-compaction"
+            omitted.push({ messageID: item.row.id, reason }, { messageID: pairedSummary.row.id, reason })
+            return []
+          }
+          omitted.push({ messageID: pairedSummary.row.id, reason: "compaction-summary", targetMessageID: item.row.id })
           const summary = pairedSummary
           const summaryText = (byMessage.get(summary.row.id) ?? [])
             .map((part) => part.value)
@@ -318,7 +333,10 @@ export function transformSession(input: TransformInput): TransformResult {
         const visible = owned.filter((part): part is SessionV1.TextPart => part.type === "text" && !part.ignored)
         const files = owned.filter((part): part is SessionV1.FilePart => part.type === "file")
         const agents = owned.filter((part): part is SessionV1.AgentPart => part.type === "agent")
-        if (subtasks.length > 0 && visible.length === 0 && files.length === 0 && agents.length === 0) return []
+        if (subtasks.length > 0 && visible.length === 0 && files.length === 0 && agents.length === 0) {
+          omitted.push({ messageID: item.row.id, reason: "subtask" })
+          return []
+        }
         const ordinary = visible.filter((part) => !part.synthetic)
         const synthetic = visible.filter((part) => part.synthetic)
         const attachments = files.flatMap((part) => migrateFile(part))
@@ -377,8 +395,10 @@ export function transformSession(input: TransformInput): TransformResult {
       if (
         parentParts.some((part) => part.type === "subtask") &&
         owned.some((part) => part.type === "tool" && part.tool === "task")
-      )
+      ) {
+        omitted.push({ messageID: item.row.id, reason: "subtask" })
         return []
+      }
       const content = owned.flatMap((part): Array<Record<string, unknown>> => {
         if (part.type === "text")
           return [{ type: "text", text: part.text, ...(part.metadata ? { state: part.metadata } : {}) }]
@@ -488,6 +508,7 @@ export function transformSession(input: TransformInput): TransformResult {
       time_compacting: null,
     },
     watermark: migrated.length - 1,
+    omitted,
     warnings,
   }
 }
@@ -541,6 +562,10 @@ export function run(options: Options = {}): Effect.Effect<RunResult, never, Data
       const state = yield* readState(db)
       if (state?.phase === "completed") return { status: "completed" as const }
       if (!(yield* hasLegacySessions(db))) return { status: "completed" as const }
+      const retained = yield* db.get<{ value: string }>(sql`SELECT value FROM kv WHERE key = ${retainedSessionsKey}`)
+      const retainedIDs = new Set<string>(
+        retained ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(SessionSchema.ID)))(retained.value) : [],
+      )
       const now = Date.now()
       yield* db.run(sql`
           INSERT OR IGNORE INTO project (id, worktree, time_created, time_updated, time_active, sandboxes)
@@ -603,6 +628,7 @@ export function run(options: Options = {}): Effect.Effect<RunResult, never, Data
                   set: { value: { phase: "sessions", cursor: nextID.id }, time_updated: Date.now() },
                 })
                 .run()
+              if (retainedIDs.has(nextID.id)) return
               const projectID = projects.has(nextID.project_id) ? nextID.project_id : Project.ID.global
               if (projectID !== nextID.project_id)
                 yield* Effect.logWarning("Reassigned V1 session with missing project", {

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
+import { Profile } from "@opencode/schema/profile"
+import { SessionID } from "@opencode/schema/session-id"
 import {
   NO_PROVIDER,
   REMOTE_SERVER,
@@ -10,10 +12,11 @@ import {
   seed,
   session,
   sessionHref,
+  tabKey,
 } from "../utils/app"
 import { mockServers } from "../utils/mock-server"
 import { fixture, mockStressTimeline } from "../utils/session-fixture"
-import { fileNode, mockWorkspace, openSession } from "../utils/workspace"
+import { fileNode, mockRemoteServer, mockWorkspace, openSession } from "../utils/workspace"
 import { expectSessionTitle } from "../utils/waits"
 
 const a = { id: "ses_tab_a", title: "Tab A session" }
@@ -23,6 +26,116 @@ const b = { id: "ses_tab_b", title: "Tab B session" }
 const c = { id: "ses_tab_c", title: "Tab C session" }
 
 test.use({ serviceWorkers: "block" })
+
+test("a project and chat closed on another device stay closed after this device reloads", async ({ page }) => {
+  const remote = "http://sync.test:4096"
+  const directory = "/remote/project"
+  const profile = {
+    current: Profile.Snapshot.make({
+      revision: 1,
+      profile: {
+        version: 1,
+        servers: [
+          {
+            url: remote + "/",
+            name: "Remote authoritative",
+            projects: [{ worktree: directory }],
+            openSessionIDs: [SessionID.make(b.id)],
+          },
+        ],
+      },
+    }),
+  }
+  await mockWorkspace(page, {
+    name: "Profile",
+    sessions: [a],
+    profile,
+    seed: {
+      settings: { appearance: { tabLayout: "vertical" } },
+      tabs: [a.id, { session: b.id, server: remote }],
+      projects: { [remote]: [{ worktree: directory }] },
+      storage: { "opencode.window.browser.dat:tabs.recent": { key: tabKey(b.id, remote) } },
+    },
+  })
+  await mockRemoteServer(page, {
+    server: remote,
+    name: "Cached remote",
+    directory,
+    profile,
+    sessions: [session({ id: b.id, title: b.title, directory, projectID: "proj_remote" })],
+  })
+  await page.goto(sessionHref(b.id, remote))
+  await expectSessionTitle(page, b.title)
+  await expect(page.getByRole("heading", { name: "Remote authoritative", exact: true })).toBeVisible()
+  profile.current = {
+    revision: 2,
+    profile: {
+      version: 1,
+      servers: [{ url: remote + "/", name: "Remote authoritative", projects: [], openSessionIDs: [] }],
+    },
+  }
+  await page.reload()
+  await expectPath(page, "/")
+  await expect(page.locator(`[data-titlebar-tab-slot]:has(a[href="${sessionHref(b.id, remote)}"])`)).toHaveCount(0)
+  expect(profile.current.profile.servers[0].projects).toEqual([])
+})
+
+test("an offline tab close survives reload and reconciles instead of reopening the cached remote tab", async ({
+  page,
+}) => {
+  const remote = "http://sync.test:4096"
+  const directory = "/remote/project"
+  const profile = {
+    offline: false,
+    current: Profile.Snapshot.make({
+      revision: 1,
+      profile: {
+        version: 1,
+        servers: [
+          {
+            url: remote + "/",
+            name: "Remote authoritative",
+            projects: [{ worktree: directory }],
+            openSessionIDs: [SessionID.make(b.id), SessionID.make(c.id)],
+          },
+        ],
+      },
+    }),
+  }
+  await mockWorkspace(page, {
+    name: "Offline profile",
+    sessions: [a],
+    profile,
+    seed: {
+      settings: { appearance: { tabLayout: "vertical" } },
+      tabs: [a.id, { session: b.id, server: remote }, { session: c.id, server: remote }],
+      projects: { [remote]: [{ worktree: directory }] },
+    },
+  })
+  await mockRemoteServer(page, {
+    server: remote,
+    name: "Cached remote",
+    directory,
+    profile,
+    sessions: [b, c].map((item) => session({ ...item, directory, projectID: "proj_remote" })),
+  })
+  await page.goto(sessionHref(b.id, remote))
+  await expectSessionTitle(page, b.title)
+  await expect(page.getByRole("heading", { name: "Remote authoritative", exact: true })).toBeVisible()
+  profile.offline = true
+  const failed = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/profile" && response.status() === 500,
+  )
+  const tab = page.locator(`[data-titlebar-tab-slot]:has(a[href="${sessionHref(c.id, remote)}"])`)
+  await tab.getByRole("button", { name: "Close tab", exact: true }).click()
+  await failed
+  await expect(tab).toHaveCount(0)
+  profile.offline = false
+  await page.reload()
+  await expectSessionTitle(page, b.title)
+  await expect.poll(() => profile.current.profile.servers[0].openSessionIDs).toEqual([b.id])
+  await expect(tab).toHaveCount(0)
+})
 
 test("tab strip keeps draft tabs as wide as session tabs and navigates on mouse down", async ({ page }) => {
   const workspace = await mockWorkspace(page, {

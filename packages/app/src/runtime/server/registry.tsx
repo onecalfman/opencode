@@ -292,6 +292,12 @@ export const { use: useServers, provider: ServersProvider } = createSimpleContex
       // state wait on this, but the provider must not block first render on storage.
       hydrated,
       profile: {
+        get imported() {
+          return store.profileImported === true
+        },
+        get pending() {
+          return store.profilePending ?? []
+        },
         home: props.canonicalLocalServer,
         read: () =>
           projectPortableProfile({

@@ -2,6 +2,7 @@ import { Predicate, Schema, SchemaGetter } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api"
 import { Pty } from "@opencode/schema/pty"
 import { Worktree } from "@opencode/schema/worktree"
+import { Profile } from "@opencode/schema/profile"
 
 // Handlers answer plain fixture data: undefined properties are dropped, and other non-JSON values become null.
 const Json = Schema.Json.pipe(
@@ -85,6 +86,19 @@ const PtyMissing = [MockNotFound.pipe(HttpApiSchema.status(404)), MockPtyNotFoun
 
 const Group = HttpApiGroup.make("mock")
   .add(HttpApiEndpoint.get("info", "/api/info", { success: Json }))
+  .add(
+    HttpApiEndpoint.get("profileGet", "/api/profile", {
+      success: Profile.Snapshot,
+      error: MockInternal.pipe(HttpApiSchema.status(500)),
+    }),
+  )
+  .add(
+    HttpApiEndpoint.put("profileReplace", "/api/profile", {
+      payload: Profile.ReplaceInput,
+      success: Profile.Snapshot,
+      error: Profile.RevisionConflict,
+    }),
+  )
   .add(
     HttpApiEndpoint.get("event", "/api/event", {
       success: Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/event-stream" })),

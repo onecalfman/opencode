@@ -145,7 +145,8 @@ export async function installTimelineStreamProbe(
 
           if (state.scroll.lastCallFrame === state.scroll.frame) state.scroll.sameFrameCalls += 1
           state.scroll.lastCallFrame = state.scroll.frame
-          scrollTo.apply(this, typeof first === "number" ? [first, second] : [first])
+          // eslint-disable-next-line no-restricted-globals -- Forward either native scrollTo overload without narrowing its argument tuple.
+          Reflect.apply(scrollTo, this, typeof first === "number" ? [first, second] : [first])
         }
 
         Element.prototype.scrollTo = measuredScrollTo

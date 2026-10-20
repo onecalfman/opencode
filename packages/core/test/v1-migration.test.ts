@@ -653,6 +653,11 @@ describe("V1Migration.transformSession", () => {
       time_updated: 6,
       data: { status: "completed", reason: "manual", summary: "summary", recent: "" },
     })
+    expect(result.omitted).toEqual([
+      { messageID: subtask.id, reason: "subtask" },
+      { messageID: taskAssistant.id, reason: "subtask" },
+      { messageID: summary.id, reason: "compaction-summary", targetMessageID: compact.id },
+    ])
   })
 
   test("serializes the retained compaction tail and preserves existing session selections", () => {
@@ -757,6 +762,10 @@ describe("V1Migration.transformSession", () => {
     expect(result.messages.map((row) => row.type)).toEqual(["user", "assistant"])
     expect(result.messages[0].data).toEqual({ text: "", time: { created: 1 } })
     expect(result.messages[1].data).toMatchObject({ content: [], snapshot: { start: "standalone" } })
+    expect(result.omitted).toEqual([
+      { messageID: compact.id, reason: "failed-compaction" },
+      { messageID: failed.id, reason: "failed-compaction" },
+    ])
     expect(result.watermark).toBe(1)
   })
 
@@ -808,6 +817,11 @@ describe("V1Migration.transformSession", () => {
       ],
     )
     expect(result.messages.map((row) => [row.id, row.type])).toEqual([[mixed.id, "user"]])
+    expect(result.omitted).toEqual([
+      { messageID: task.id, reason: "subtask" },
+      { messageID: compact.id, reason: "incomplete-compaction" },
+      { messageID: unfinished.id, reason: "incomplete-compaction" },
+    ])
     expect(result.watermark).toBe(0)
     expect(result.session).toMatchObject({
       cost: 5,
