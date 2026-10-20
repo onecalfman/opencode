@@ -301,6 +301,52 @@ test("option arrows move to the previous or next tab, and with shift to the next
   await expectPath(page, sessionHref(c.id))
 })
 
+test.describe("mobile tab touch scrolling", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 720 } })
+
+  test("swiping over tabs scrolls the bottom sheet without reordering or navigating", async ({ page }) => {
+    const sessions = Array.from({ length: 28 }, (_, index) => ({
+      id: `ses_mobile_scroll_${index}`,
+      title: `Mobile scroll session ${index}`,
+    }))
+    await mockWorkspace(page, { name: "Tabs", sessions })
+    await page.goto(sessionHref(sessions[0].id))
+    await page.getByRole("button", { name: "Tabs", exact: true }).tap()
+    const drawer = page.locator('[data-slot="mobile-tabs-drawer"]')
+    const scroll = drawer.locator('[data-slot="vertical-tabs-scroll"]')
+    await expect(drawer).toBeVisible()
+    await expect(drawer.locator("[data-titlebar-tab-slot]")).toHaveCount(sessions.length)
+    // Wait for the sheet's opening motion before measuring native touch coordinates.
+    await scroll.click({ trial: true })
+    const order = await drawer
+      .locator("[data-titlebar-tab-slot]")
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tab-key")))
+    const point = await scroll.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const tab = element.querySelector('[data-slot="tab-link"]')!.getBoundingClientRect()
+      return { x: tab.x + tab.width / 2, y: box.bottom - 40 }
+    })
+    const touch = await page.context().newCDPSession(page)
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] })
+    for (let step = 1; step <= 12; step++) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: point.x, y: point.y - step * 16 }],
+      })
+    }
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(50)
+    await expect(drawer).toBeVisible()
+    await expectPath(page, sessionHref(sessions[0].id))
+    expect(
+      await drawer
+        .locator("[data-titlebar-tab-slot]")
+        .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tab-key"))),
+    ).toEqual(order)
+    await touch.detach()
+  })
+})
+
 for (const row of [
   { tabLayout: "horizontal", width: 360, hasTouch: false, direction: "ltr" },
   { tabLayout: "vertical", width: 390, hasTouch: true, direction: "rtl" },

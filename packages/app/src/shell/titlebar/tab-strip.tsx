@@ -460,9 +460,10 @@ export function TitlebarTabStrip(props: {
         <DragDropProvider
           sensors={[
             PointerSensor.configure({
+              // A swipe must remain native scrolling; only a stationary hold starts touch reordering.
               activationConstraints: (event) =>
                 event.pointerType === "touch"
-                  ? [new PointerActivationConstraints.Distance({ value: 8 })]
+                  ? [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })]
                   : [new PointerActivationConstraints.Distance({ value: 4 })],
               preventActivation: (event) =>
                 event.target instanceof Element &&
