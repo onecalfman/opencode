@@ -102,15 +102,16 @@ const it = testEffect(
 )
 
 describe("LocationActivity eviction", () => {
-  for (const [count, admission] of [
-    [1, "none"],
-    [2, "none"],
-    [1, "other"],
-    [1, "same"],
+  for (const [count, finish, admission] of [
+    [1, "answer", "none"],
+    [2, "answer", "none"],
+    [1, "interrupt", "none"],
+    [1, "interrupt", "other"],
+    [1, "interrupt", "same"],
   ] as const) {
     const newWork = admission !== "none"
     it.effect(
-      `interrupts ${count} waiting executions before eviction (${admission} session admitted during cleanup)`,
+      `preserves ${count} waiting executions until ${finish} (${admission} session admitted during cleanup)`,
       () =>
         Effect.gen(function* () {
           const db = (yield* Database.Service).db
@@ -174,14 +175,27 @@ describe("LocationActivity eviction", () => {
           expect((yield* store.listSuspended()).toSorted()).toEqual(sessionIDs.toSorted())
           yield* Location.Service.pipe(Effect.provide(map.get(idle)), Effect.scoped)
 
-          // Human input produces no durable activity while the question is pending.
+          // Waiting for human input produces no durable activity, but is not idle.
           yield* TestClock.adjust("1 minute")
-          yield* TestClock.adjust("62 minutes")
-          // Interruption has cancelled each question, but slow cleanup still owns the graph.
+          yield* TestClock.adjust("122 minutes")
           expect(Array.from(yield* execution.active).toSorted()).toEqual(sessionIDs.toSorted())
           expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual([ref])
-          expect(yield* forms.list()).toEqual([])
-          for (const form of pending) expect(yield* forms.state(form.id)).toEqual({ status: "cancelled" })
+          expect(yield* forms.list()).toEqual(pending)
+          expect(interrupted).toEqual([])
+          for (const form of pending) expect(yield* forms.state(form.id)).toEqual({ status: "pending" })
+
+          if (finish === "answer") {
+            for (const form of pending) yield* forms.reply({ id: form.id, answer: { runtime: "approved" } })
+          }
+          if (finish === "interrupt") {
+            for (const sessionID of sessionIDs) yield* execution.interrupt(sessionID)
+            // Explicit stops still cancel forms; slow cleanup keeps ownership alive.
+            yield* TestClock.adjust("1 minute")
+            expect(Array.from(yield* execution.active).toSorted()).toEqual(sessionIDs.toSorted())
+            expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual([ref])
+            expect(yield* forms.list()).toEqual([])
+            for (const form of pending) expect(yield* forms.state(form.id)).toEqual({ status: "cancelled" })
+          }
 
           if (newWork) {
             yield* execution.wake(newcomer)
@@ -190,13 +204,13 @@ describe("LocationActivity eviction", () => {
           yield* TestClock.adjust("5 minutes")
           if (newWork) yield* Deferred.await(newCreated)
           const results = yield* Effect.forEach(running, Fiber.join)
-          expect(results.every((exit) => exit._tag === "Failure")).toBe(true)
+          expect(results.every((exit) => exit._tag === (finish === "answer" ? "Success" : "Failure"))).toBe(true)
           expect(Array.from(yield* execution.active)).toEqual(newWork ? [newcomer] : [])
           expect(yield* store.listSuspended()).toEqual(newWork ? [newcomer] : [])
           expect(interrupted.toSorted((a, b) => a.sessionID.localeCompare(b.sessionID))).toEqual(
-            sessionIDs.map((sessionID) => ({ sessionID, reason: "inactivity" })),
+            finish === "interrupt" ? sessionIDs.map((sessionID) => ({ sessionID, reason: "user" })) : [],
           )
-          expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual(newWork ? [ref] : [])
+          expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual([ref])
           if (newWork) {
             expect(yield* forms.list({ sessionID: newcomer })).toEqual([pending[count]])
             if (admission === "same") {
@@ -212,10 +226,11 @@ describe("LocationActivity eviction", () => {
             yield* execution.interrupt(newcomer)
             yield* TestClock.adjust("5 minutes")
             yield* execution.awaitIdle(newcomer)
-            yield* TestClock.adjust("62 minutes")
-            expect(yield* store.listSuspended()).toEqual([])
-            expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual([])
           }
+          // Once execution really is idle, the graph remains eligible for cleanup.
+          yield* TestClock.adjust("62 minutes")
+          expect(yield* store.listSuspended()).toEqual([])
+          expect(Array.from(yield* RcMap.keys(map.rcMap))).toEqual([])
         }),
     )
   }
