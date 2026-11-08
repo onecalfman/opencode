@@ -2,6 +2,20 @@ import { expect, test } from "@playwright/test"
 import { timelinePresets } from "@opencode/session-ui/timeline/detail"
 import { assistantMessage, partUpdated, setupTimeline, toolPart, userMessage } from "../utils/timeline"
 
+test("shows command progress until the shell command settles", async ({ page }) => {
+  const id = "prt_running_command"
+  const command = { command: "sleep 1" }
+  const timeline = await setupTimeline(page, {
+    messages: [userMessage(), assistantMessage([toolPart(id, "shell", "running", command)], { completed: false })],
+  })
+  const status = page.getByRole("status").filter({ hasText: "Running commands" })
+  await expect(status).toBeVisible()
+  await expect(status.locator('[data-component="session-progress-indicator-v2"]')).toBeVisible()
+  await expect(page.locator('[data-component="session-working"]')).toHaveCount(0)
+  await timeline.send(partUpdated(toolPart(id, "shell", "completed", command, { output: "done" })))
+  await expect(status).toHaveCount(0)
+})
+
 test("keeps shell and question failures in their Used group", async ({ page }) => {
   const shellID = "prt_transition_error_shell"
   const questionID = "prt_transition_error_question"

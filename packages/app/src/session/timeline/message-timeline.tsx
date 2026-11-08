@@ -10,6 +10,7 @@ import { InlineInput } from "@opencode/ui/inline-input"
 import { Keybind } from "@opencode/ui/keybind"
 import { Menu } from "@opencode/ui/menu"
 import { TextShimmer } from "@opencode/ui/text-shimmer"
+import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
 import type { BackgroundTask, MountedSession, SessionScreen } from "@opencode/gui-extensions/sdk"
 import { ExtensionSlot } from "@/runtime/extension/render"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -336,7 +337,31 @@ function MessageTimelineView(
     1000,
   )
 
+  const commandRunning = createMemo(() => {
+    const id = sessionID()
+    const active = projection.activeMessageID()
+    if (!id || !active || sessionStatus().type !== "busy") return false
+    if (data.session.permission.list(id)?.length || data.session.form.list(id)?.length) return false
+    return (
+      projection
+        .assistantMessagesByParent()
+        .get(active)
+        ?.some(
+          (message) =>
+            !message.error &&
+            !message.retry &&
+            message.content.some(
+              (content) =>
+                content.type === "tool" &&
+                (content.name === "shell" || content.name === "bash") &&
+                content.state.status === "running",
+            ),
+        ) ?? false
+    )
+  })
+
   const showWorking = createMemo(() => {
+    if (commandRunning()) return false
     const id = sessionID()
 
     if (!id || sessionStatus().type !== "busy") return false
@@ -399,7 +424,7 @@ function MessageTimelineView(
   const activityRow = createMemo(() => projection.rows().some((row) => Predicate.isTagged(row, "Activity")))
 
   const activity = () => (
-    <Show when={showWorking() || backgroundHintPresence.present()}>
+    <Show when={commandRunning() || showWorking() || backgroundHintPresence.present()}>
       <div
         classList={{
           "min-w-0 w-full max-w-full": true,
@@ -407,6 +432,12 @@ function MessageTimelineView(
         }}
       >
         <div class={`flex h-9 items-center gap-2 pt-3 text-[13px] font-[530] leading-text-compact ${turnPadding()}`}>
+          <Show when={commandRunning()}>
+            <div role="status" class="flex items-center gap-2 text-text-weak">
+              <SessionProgressIndicatorV2 class="size-4" />
+              <span>{language.t("ui.sessionTurn.status.runningCommands")}</span>
+            </div>
+          </Show>
           <Show when={showWorking()}>
             <div data-component="session-working" role="status">
               <TextShimmer text={language.t("session.timeline.working")} active />

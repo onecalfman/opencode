@@ -831,7 +831,10 @@ test.describe("background shortcut", () => {
           ),
         ],
       })
-      const working = page.locator('[data-component="session-working"]')
+      const working =
+        name === "shell"
+          ? page.getByRole("status").filter({ hasText: "Running commands" })
+          : page.locator('[data-component="session-working"]')
       const group = page.locator('[data-timeline-part-ids="prt_grouped_previous,prt_grouped_active"]')
       const trigger = group.locator(':scope > [data-component="collapsible"] > [data-slot="collapsible-trigger"]')
       await expect(trigger).toHaveAttribute("aria-expanded", "false")
