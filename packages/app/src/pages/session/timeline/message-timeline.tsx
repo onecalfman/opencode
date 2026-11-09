@@ -40,6 +40,7 @@ import { DialogFooter, DialogHeader, DialogTitleGroup, DialogV2 } from "@opencod
 import { InlineInput } from "@opencode-ai/ui/inline-input"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
+import { SessionProgressIndicatorV2 } from "@opencode-ai/session-ui/v2/session-progress-indicator-v2"
 import { isScrollKeyTarget, scrollKey, scrollKeyOwner, ScrollView } from "@opencode-ai/ui/scroll-view"
 import { StickyAccordionHeader } from "@opencode-ai/ui/sticky-accordion-header"
 import { TextField } from "@opencode-ai/ui/text-field"
@@ -138,6 +139,17 @@ function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSu
       <Show when={!props.showReasoningSummaries}>
         <TextReveal text={props.reasoningHeading} class="session-turn-thinking-heading" travel={25} duration={700} />
       </Show>
+    </div>
+  )
+}
+
+function TimelineCommandRunningRow() {
+  const language = useLanguage()
+
+  return (
+    <div data-slot="session-turn-command" role="status">
+      <SessionProgressIndicatorV2 style={{ color: "var(--text-weak)" }} />
+      <span>{language.t("ui.sessionTurn.status.runningCommands")}</span>
     </div>
   )
 }
@@ -1187,6 +1199,20 @@ export function MessageTimeline(props: {
                 reasoningHeading={thinkingRow().reasoningHeading}
                 showReasoningSummaries={settings.general.showReasoningSummaries()}
               />
+            </div>
+          </TimelineRowFrame>
+        )
+      }
+      case "CommandRunning": {
+        const commandRow = (): TimelineRowByTag<"CommandRunning"> => {
+          const value = row()
+          if (value._tag !== "CommandRunning") throw new Error("Unexpected timeline row")
+          return value
+        }
+        return (
+          <TimelineRowFrame row={commandRow}>
+            <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
+              <TimelineCommandRunningRow />
             </div>
           </TimelineRowFrame>
         )

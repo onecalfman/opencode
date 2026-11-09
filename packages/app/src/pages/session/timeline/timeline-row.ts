@@ -28,6 +28,9 @@ export namespace TimelineRow {
     userMessageID: string
     reasoningHeading?: string
   }> {}
+  export class CommandRunning extends Data.TaggedClass("CommandRunning")<{
+    userMessageID: string
+  }> {}
   export class DiffSummary extends Data.TaggedClass("DiffSummary")<{
     userMessageID: string
     diffs: SummaryDiff[]
@@ -47,6 +50,7 @@ export namespace TimelineRow {
     | TurnDivider
     | AssistantPart
     | Thinking
+    | CommandRunning
     | DiffSummary
     | Error
     | Retry
@@ -65,12 +69,16 @@ export namespace TimelineRow {
         return `assistant-part:${row.userMessageID}:${row.group.key}`
       case "Thinking":
         return `thinking:${row.userMessageID}`
+      case "CommandRunning":
+        return `command-running:${row.userMessageID}`
       case "DiffSummary":
         return `diff-summary:${row.userMessageID}`
       case "Error":
         return `error:${row.userMessageID}`
       case "Retry":
         return `retry:${row.userMessageID}`
+      default:
+        return row
     }
   }
 

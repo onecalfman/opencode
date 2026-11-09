@@ -43,7 +43,8 @@
     align-self: stretch;
   }
 
-  [data-slot="session-turn-thinking"] {
+  [data-slot="session-turn-thinking"],
+  [data-slot="session-turn-command"] {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -57,7 +58,8 @@
     line-height: 20px;
     min-height: 20px;
 
-    [data-component="spinner"] {
+    [data-component="spinner"],
+    [data-component="session-progress-indicator-v2"] {
       width: 16px;
       height: 16px;
     }

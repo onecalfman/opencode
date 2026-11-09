@@ -27,6 +27,7 @@ export type TimelineRowMap = {
     previousAssistantPart: boolean
   }
   Thinking: { userMessageID: string; reasoningHeading?: string }
+  CommandRunning: { userMessageID: string }
   Retry: { userMessageID: string }
   DiffSummary: { userMessageID: string; diffs: SummaryDiff[] }
   Error: { userMessageID: string; text: string }
@@ -190,7 +191,24 @@ export namespace Timeline {
       assistantGroupIndex += 1
     })
 
-    if (isActive && status === "busy" && !error && (showReasoning ? assistantPartRefs.length === 0 : true)) {
+    const commandRunning = assistantPartRefs.some(
+      ({ part }) =>
+        part.type === "tool" &&
+        (part.tool === "bash" || part.tool === "shell") &&
+        part.state.status === "running",
+    )
+
+    if (isActive && status === "busy" && !error && commandRunning) {
+      rows.push(new TimelineRow.CommandRunning({ userMessageID: userMessage.id }))
+    }
+
+    if (
+      isActive &&
+      status === "busy" &&
+      !error &&
+      !commandRunning &&
+      (showReasoning ? assistantPartRefs.length === 0 : true)
+    ) {
       const heading = assistantMessages
         .flatMap((message) => getMessageParts(message.id))
         .map((part) => (part.type === "reasoning" && part.text ? reasoningHeading(part.text) : undefined))

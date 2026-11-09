@@ -46,6 +46,23 @@ test("preserves an expanded tool error card across duplicate delivery", async ({
   await expect(wrapper).toContainText("Command failed visibly")
 })
 
+test("shows a distinct status animation while a shell command is running", async ({ page }) => {
+  const commandID = "prt_running_command"
+  const command = { command: "sleep 1" }
+  const timeline = await setupTimeline(page, {
+    messages: [userMessage(), assistantMessage([toolPart(commandID, "bash", "running", command)], { completed: false })],
+  })
+  const row = page.locator('[data-timeline-row="CommandRunning"]')
+
+  await expect(row).toBeVisible()
+  await expect(row).toContainText("Running commands")
+  await expect(row.locator('[data-component="session-progress-indicator-v2"]')).toBeVisible()
+  await expect(page.locator('[data-timeline-row="Thinking"]')).toHaveCount(0)
+
+  await timeline.send(partUpdated(toolPart(commandID, "bash", "completed", command, { output: "done" })))
+  await expect(row).toHaveCount(0)
+})
+
 test("renders multiple question answers and preserves open state on answer updates", async ({ page }) => {
   const questionID = "prt_multi_question"
   const input = {
