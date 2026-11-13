@@ -21,6 +21,15 @@ v2-build-cli: check-bun
     OPENCODE_CHANNEL=dev bun run --cwd packages/app build
     OPENCODE_CHANNEL=dev bun run --cwd packages/cli script/build.ts --single --skip-install --skip-web-ui
 
+# Rebuild browser assets as well as the binary; never reuse an older worktree's bundle.
+v2-build-release version: check-bun
+    OPENCODE_CHANNEL=latest OPENCODE_VERSION="{{version}}" bun run --cwd packages/app build
+    OPENCODE_CHANNEL=latest OPENCODE_VERSION="{{version}}" bun run --cwd packages/cli script/build.ts --single --skip-install --skip-web-ui
+
+[working-directory: "packages/app"]
+v2-command-progress-tests: check-bun
+    PLAYWRIGHT_PORT=4479 bun run test:e2e:built -- e2e/regression/session-timeline-tool-projection.spec.ts e2e/regression/timeline-stream.spec.ts --grep 'command progress|Working|background shell presentation' --project chromium --workers=1 --retries=0 --reporter=line
+
 [working-directory: "packages/app"]
 v2-tab-benchmark: check-bun
     PLAYWRIGHT_PORT=4471 PLAYWRIGHT_BUILD=1 npx playwright test --config e2e/performance/playwright.config.ts timeline/session-tab-switch-benchmark.spec.ts --project chromium --grep 'tab switch: warm, review closed' --workers=1 --retries=0 --reporter=line

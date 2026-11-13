@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
+import type { ShellInfo } from "@opencode/client/promise"
 import { timelinePresets } from "@opencode/session-ui/timeline/detail"
-import { assistantMessage, partUpdated, setupTimeline, toolPart, userMessage } from "../utils/timeline"
+import { assistantMessage, directory, partUpdated, sessionID, setupTimeline, toolPart, userMessage } from "../utils/timeline"
 
 test("shows command progress until the shell command settles", async ({ page }) => {
   const id = "prt_running_command"
@@ -14,6 +15,37 @@ test("shows command progress until the shell command settles", async ({ page }) 
   await expect(page.locator('[data-component="session-working"]')).toHaveCount(0)
   await timeline.send(partUpdated(toolPart(id, "shell", "completed", command, { output: "done" })))
   await expect(status).toHaveCount(0)
+})
+
+test("shows command progress for an idle session until its background shell exits", async ({ page }) => {
+  const shell = {
+    id: "sh_idle_command",
+    status: "running",
+    command: "sleep 120",
+    cwd: directory,
+    shell: "bash",
+    file: "/commands/sleep.out",
+    metadata: { sessionID },
+    time: { started: 2 },
+  } satisfies ShellInfo
+  const timeline = await setupTimeline(page, {
+    messages: [userMessage(), assistantMessage()],
+    sessionStatus: { [sessionID]: { type: "idle" } },
+    shellCommands: () => [shell, { ...shell, id: "sh_other_session", metadata: { sessionID: "ses_other" } }],
+  })
+  const progress = page.getByRole("status").filter({ hasText: "Running commands" })
+  await expect(progress).toBeVisible()
+  await expect(progress.locator('[data-component="session-progress-indicator-v2"]')).toBeVisible()
+  await expect(page.locator('[data-component="session-working"]')).toHaveCount(0)
+
+  await timeline.transport.send({
+    id: "evt_idle_command_exited",
+    created: 3,
+    type: "shell.exited",
+    location: { directory },
+    data: { id: shell.id, status: "exited", exit: 0 },
+  })
+  await expect(progress).toHaveCount(0)
 })
 
 test("keeps shell and question failures in their Used group", async ({ page }) => {

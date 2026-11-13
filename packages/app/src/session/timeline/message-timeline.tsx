@@ -339,9 +339,17 @@ function MessageTimelineView(
 
   const commandRunning = createMemo(() => {
     const id = sessionID()
-    const active = projection.activeMessageID()
-    if (!id || !active || sessionStatus().type !== "busy") return false
+    if (!id) return false
     if (data.session.permission.list(id)?.length || data.session.form.list(id)?.length) return false
+    // Background and manually launched shells can outlive the assistant's busy period.
+    if (
+      data.shell
+        .list({ directory: sessionDirectory() })
+        .some((shell) => shell.status === "running" && shell.metadata.sessionID === id)
+    )
+      return true
+    const active = projection.activeMessageID()
+    if (!active || sessionStatus().type !== "busy") return false
     return (
       projection
         .assistantMessagesByParent()

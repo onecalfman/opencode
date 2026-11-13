@@ -8,7 +8,8 @@ import {
   ProjectAvatar,
 } from "@opencode/ui/project-avatar"
 import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
-import { Show } from "solid-js"
+import { Icon } from "@opencode/ui/icon"
+import { Match, Switch } from "solid-js"
 
 export function SessionTabAvatar(props: {
   project?: LocalProject
@@ -28,6 +29,7 @@ export function SessionTabAvatar(props: {
       directory={props.directory}
       unread={state.unread()}
       loading={state.loading()}
+      question={state.question()}
     />
   )
 }
@@ -37,10 +39,10 @@ export function SessionTabAvatarView(props: {
   directory: string
   unread: boolean
   loading: boolean
+  question?: boolean
 }) {
   return (
-    <Show
-      when={props.loading}
+    <Switch
       fallback={
         <ProjectAvatar
           fallback={displayName(props.project ?? { worktree: props.directory })}
@@ -50,7 +52,12 @@ export function SessionTabAvatarView(props: {
         />
       }
     >
-      <SessionProgressIndicatorV2 />
-    </Show>
+      <Match when={props.question}>
+        <Icon name="help" class="shrink-0 text-v2-icon-icon-base" />
+      </Match>
+      <Match when={props.loading}>
+        <SessionProgressIndicatorV2 />
+      </Match>
+    </Switch>
   )
 }

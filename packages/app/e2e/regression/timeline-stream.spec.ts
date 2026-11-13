@@ -693,6 +693,18 @@ test.describe("Working", () => {
     test(`uses ${grouped ? "grouped" : "standalone"} background shell presentation`, async ({ page }) => {
       await setupTimeline(page, {
         settings: { shellToolPartsExpanded: !grouped },
+        shellCommands: () => [
+          {
+            id: "sh_working_background",
+            status: "running",
+            command: "sleep 10",
+            cwd: directory,
+            shell: "bash",
+            file: "/commands/sleep.out",
+            metadata: { sessionID },
+            time: { started: 2 },
+          },
+        ],
         messages: [
           userMessage(),
           assistantMessage(
@@ -711,6 +723,10 @@ test.describe("Working", () => {
         ],
       })
       const working = page.locator('[data-component="session-working"]')
+      const progress = page.getByRole("status").filter({ hasText: "Running commands" })
+
+      await expect(progress).toBeVisible()
+      await expect(working).toHaveCount(0)
 
       if (!grouped) {
         await expect(page.locator('[data-timeline-part-id="prt_background_active"]')).toBeVisible()
@@ -724,10 +740,10 @@ test.describe("Working", () => {
         .getByRole("button", { name: "Used 2 Shell", exact: true, includeHidden: true })
 
       await expect(trigger).toHaveAttribute("aria-expanded", "false")
-      await expect(working).toBeVisible()
+      await expect(progress).toBeVisible()
       await trigger.click()
       await expect(trigger).toHaveAttribute("aria-expanded", "true")
-      await expect(working).toBeVisible()
+      await expect(progress).toBeVisible()
     })
   }
 

@@ -36,6 +36,7 @@ function SessionTabSlot(props: {
   preparing: boolean
   unread: boolean
   loading: boolean
+  question: boolean
   fallbackTitle?: string
   onRename: (title: string) => Promise<void>
   onNavigate: (element: HTMLDivElement) => void
@@ -78,6 +79,7 @@ function SessionTabSlot(props: {
         preparing={props.preparing}
         unread={props.unread}
         loading={props.loading}
+        question={props.question}
         fallbackTitle={props.fallbackTitle}
         onRename={props.onRename}
         onNavigate={() => props.onNavigate(ref)}
@@ -215,6 +217,7 @@ function SessionTabEntry(props: {
         preparing={!!pending()}
         unread={unread()}
         loading={status.loading()}
+        question={status.question()}
         fallbackTitle={
           pending()
             ? language.t("session.tab.session")

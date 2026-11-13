@@ -16,7 +16,6 @@ import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-prog
 import type { SessionInfo } from "@opencode/client/promise"
 import { sessionTabTitle } from "./tab-title"
 import { TabPreviewPopover } from "./tab-popover"
-import { projectTag } from "@/shell/layout/helpers"
 import "./tab-nav.css"
 
 // MouseEvent.button uses 1 for the middle/wheel button.
@@ -30,6 +29,7 @@ export function TabNavItem(props: {
   preparing: boolean
   unread: boolean
   loading: boolean
+  question: boolean
   fallbackTitle?: string
   onRename: (title: string) => Promise<void>
   onClose: () => void
@@ -81,11 +81,6 @@ export function TabNavItem(props: {
     if (!session) return
 
     return displayName(project() ?? { worktree: session.location.directory })
-  })
-  const tag = createMemo(() => {
-    const session = props.session
-    if (!session) return
-    return projectTag(project() ?? { worktree: session.location.directory })
   })
 
   const previewPath = createMemo(() => {
@@ -314,6 +309,7 @@ export function TabNavItem(props: {
                 directory={session.location.directory}
                 unread={false}
                 loading={props.loading}
+                question={props.question}
               />
             )}
           </Show>
@@ -321,17 +317,6 @@ export function TabNavItem(props: {
             <span data-slot="tab-avatar-unread-dot" aria-hidden="true" />
           </Show>
         </span>
-        <Show when={tag()}>
-          {(tag) => (
-            <bdi
-              dir="auto"
-              title={tag()}
-              class="max-w-14 shrink-0 truncate rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-semibold leading-4 text-v2-text-text-muted"
-            >
-              {tag()}
-            </bdi>
-          )}
-        </Show>
         <span
           ref={(el) => {
             titleEl = el
@@ -527,16 +512,6 @@ export function DraftTabItem(props: {
             />
           </svg>
         </span>
-        <Show when={props.tag}>
-          {(tag) => (
-            <bdi
-              dir="auto"
-              class="max-w-14 shrink-0 truncate rounded-[3px] bg-v2-background-bg-layer-03 px-1 text-[10px] font-semibold leading-4 text-v2-text-text-muted"
-            >
-              {tag()}
-            </bdi>
-          )}
-        </Show>
         <span
           data-titlebar-tab-title
           class="min-w-0 flex-1 overflow-hidden text-clip whitespace-nowrap outline-none leading-4"

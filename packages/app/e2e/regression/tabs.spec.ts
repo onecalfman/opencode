@@ -698,6 +698,75 @@ test("a remote tab stays busy while a child session runs", async ({ page }) => {
   await expect(tabA.locator('[data-component="session-progress-indicator-v2"]')).toHaveCount(0)
 })
 
+test("unanswered questions replace session icons until the session family has no pending questions", async ({ page }) => {
+  const workspace = await openSession(page, {
+    name: "TabQuestions",
+    sessions: [a, b, { ...c, parentID: b.id }],
+    inbox: [
+      {
+        id: "inb_tab_question",
+        sessionID: b.id,
+        time: { created: 1 },
+        type: "user",
+        payload: { text: "Waiting work" },
+        delivery: "queue",
+      },
+    ],
+  })
+  const tab = (id: string) => page.locator(`[data-titlebar-tab-slot]:has(a[href="${sessionHref(id)}"])`)
+  const avatar = tab(b.id).locator('[data-slot="project-avatar-slot"]')
+  const progress = '[data-component="session-progress-indicator-v2"]'
+  const question = 'svg:has(use[href="#opencode-v2-icon-help"])'
+  await expect(avatar.locator(progress)).toBeVisible()
+
+  for (const [index, kind] of ["question", "websearch.provider"].entries()) {
+    await workspace.push([
+      {
+        id: `evt_question_created_${index}`,
+        created: 2 + index,
+        type: "form.created",
+        location: { directory: workspace.directory },
+        data: {
+          form: {
+            id: `frm_tab_question_${index}`,
+            sessionID: index === 0 ? b.id : c.id,
+            title: "Questions",
+            metadata: { kind },
+            fields: [{ key: "q0", type: "string", title: "Implementation" }],
+          },
+        },
+      } satisfies Extract<OpenCodeEvent, { type: "form.created" }>,
+    ])
+    await expect(avatar.locator(question)).toBeVisible()
+    await expect(avatar.locator(progress)).toHaveCount(0)
+    await expect(avatar.locator('[data-component="project-avatar"]')).toHaveCount(0)
+    await expect(tab(a.id).locator(question)).toHaveCount(0)
+  }
+
+  await workspace.push([
+    {
+      id: "evt_question_replied",
+      created: 4,
+      type: "form.replied",
+      location: { directory: workspace.directory },
+      data: { id: "frm_tab_question_0", sessionID: b.id, answer: { q0: "minimal" } },
+    } satisfies Extract<OpenCodeEvent, { type: "form.replied" }>,
+  ])
+  // The child's provider-selection form still needs an answer.
+  await expect(avatar.locator(question)).toBeVisible()
+  await workspace.push([
+    {
+      id: "evt_question_cancelled",
+      created: 5,
+      type: "form.cancelled",
+      location: { directory: workspace.directory },
+      data: { id: "frm_tab_question_1", sessionID: c.id },
+    } satisfies Extract<OpenCodeEvent, { type: "form.cancelled" }>,
+  ])
+  await expect(avatar.locator(question)).toHaveCount(0)
+  await expect(avatar.locator(progress)).toBeVisible()
+})
+
 test("inactive tabs stay busy while work waits in their inbox, and pulse on a new prompt, as in the TUI", async ({
   page,
 }) => {
