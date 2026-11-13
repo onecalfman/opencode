@@ -31,7 +31,7 @@ v2-command-progress-tests: check-bun
 
 [working-directory: "packages/app"]
 v2-tab-benchmark: check-bun
-    PLAYWRIGHT_PORT=4471 PLAYWRIGHT_BUILD=1 npx playwright test --config e2e/performance/playwright.config.ts timeline/session-tab-switch-benchmark.spec.ts --project chromium --grep 'tab switch: warm, review closed' --workers=1 --retries=0 --reporter=line
+    PLAYWRIGHT_PORT=4471 PLAYWRIGHT_BUILD=1 bun run playwright test --config e2e/performance/playwright.config.ts timeline/session-tab-switch-benchmark.spec.ts --project chromium --grep 'tab switch: warm, review closed' --workers=1 --retries=0 --reporter=line
 
 v2-rehearse-fixture checkout destination: check-bun
     bun run --cwd packages/core script/migration-rehearsal.ts --fixture-from "{{checkout}}" "{{destination}}"

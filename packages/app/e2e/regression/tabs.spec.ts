@@ -698,6 +698,41 @@ test("a remote tab stays busy while a child session runs", async ({ page }) => {
   await expect(tabA.locator('[data-component="session-progress-indicator-v2"]')).toHaveCount(0)
 })
 
+test("an idle tab stays busy while its session family has a running shell watcher", async ({ page }) => {
+  const directory = "C:/OpenCode/TabShellWatchers"
+  const shell = {
+    id: "sh_tab_watcher",
+    status: "running" as const,
+    command: "watch-checks",
+    cwd: directory,
+    shell: "bash",
+    file: "/commands/watcher.out",
+    metadata: { sessionID: c.id },
+    time: { started: 1 },
+  }
+  const workspace = await openSession(page, {
+    name: "TabShellWatchers",
+    directory,
+    sessions: [a, b, { ...c, parentID: b.id }],
+    shellCommands: () => [shell],
+  })
+  const tab = (id: string) => page.locator(`[data-titlebar-tab-slot]:has(a[href="${sessionHref(id)}"])`)
+  const progress = '[data-component="session-progress-indicator-v2"]'
+  await expect(tab(b.id).locator(progress)).toBeVisible()
+  await expect(tab(a.id).locator(progress)).toHaveCount(0)
+
+  await workspace.push([
+    {
+      id: "evt_tab_watcher_exited",
+      created: 2,
+      type: "shell.exited",
+      location: { directory },
+      data: { id: shell.id, status: "exited", exit: 0 },
+    } satisfies Extract<OpenCodeEvent, { type: "shell.exited" }>,
+  ])
+  await expect(tab(b.id).locator(progress)).toHaveCount(0)
+})
+
 test("unanswered questions replace session icons until the session family has no pending questions", async ({ page }) => {
   const workspace = await openSession(page, {
     name: "TabQuestions",
