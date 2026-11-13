@@ -247,6 +247,8 @@ export const Plugin = {
                   sessionID: context.sessionID,
                   shellID: info.id,
                   command: info.command,
+                  cwd: info.cwd,
+                  shell: info.shell,
                 },
                 run,
               })

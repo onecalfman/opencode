@@ -11,6 +11,10 @@ import { SessionSchema } from "../schema.js"
 import { SessionStore } from "../store.js"
 import { ShellResult } from "../../shell/result.js"
 import { SubagentCompletion } from "../subagent-completion.js"
+import { Instance } from "../../instance/service.js"
+import { Plugin } from "../../plugin/service.js"
+import { Shell } from "../../shell.js"
+import { ShellRestart } from "../../shell/restart.js"
 
 const CONTINUE_AFTER_SERVER_RESTART =
   "The server restarted while you were working. Continue from where you left off without repeating completed work."
@@ -71,6 +75,7 @@ export const layer = (options?: Options) =>
       const bus = yield* Bus.Service
       const jobs = yield* Job.Service
       const sessions = yield* Session.Service
+      const instances = yield* Instance.Service
       const scope = yield* Effect.scope
       const maxAttempts = options?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
 
@@ -98,14 +103,109 @@ export const layer = (options?: Options) =>
         return true
       })
 
+      const restartShell = Effect.fnUntraced(function* (
+        background: Job.Background,
+        recovery: Extract<Job.Recovery, { kind: "shell" }>,
+        suspended: ReadonlySet<SessionSchema.ID>,
+      ) {
+        if (background.status !== "running" || !recovery.cwd || !recovery.shell) return false
+        if (!ShellRestart.allows(recovery.command) || (recovery.restartAttempts ?? 0) >= 3) return false
+        const session = yield* store.get(recovery.sessionID)
+        if (!session) return false
+        const started = yield* Effect.gen(function* () {
+          yield* Plugin.awaitActivation
+          const shell = yield* Shell.Service
+          const info = yield* shell.create({
+            command: recovery.command,
+            cwd: recovery.cwd,
+            shell: recovery.shell,
+            metadata: { sessionID: recovery.sessionID, background: true },
+          })
+          return {
+            info,
+            result: shell
+              .result(info)
+              .pipe(
+                Effect.onInterrupt(() =>
+                  shell.remove(info.id).pipe(Effect.catchTag("Shell.NotFoundError", () => Effect.void)),
+                ),
+              ),
+          }
+        }).pipe(
+          instances.provide(session),
+          Effect.catch(() => Effect.succeed(undefined)),
+        )
+        if (!started) return false
+        yield* jobs.start({
+          id: background.id,
+          type: "shell",
+          title: recovery.command,
+          metadata: { sessionID: recovery.sessionID, shellID: started.info.id },
+          notificationID: background.notificationID,
+          recovery: {
+            ...recovery,
+            shellID: started.info.id,
+            restartAttempts: (recovery.restartAttempts ?? 0) + 1,
+          },
+          run: started.result.pipe(
+            Effect.map((result) => {
+              const output = ShellResult.output(result)
+              return [output.output, ShellResult.notice(output)].filter(Boolean).join("\n\n")
+            }),
+          ),
+        })
+        yield* jobs.background(background.id)
+        yield* jobs.wait({ id: background.id }).pipe(
+          Effect.flatMap((result) =>
+            result.info
+              ? sessions
+                  .synthetic({
+                    id: background.notificationID,
+                    sessionID: recovery.sessionID,
+                    description: recovery.command,
+                    ...ShellResult.notification({
+                      jobID: background.id,
+                      shellID: started.info.id,
+                      command: recovery.command,
+                      state: result.info.status === "running" ? "cancelled" : result.info.status,
+                      text: result.info.output ?? result.info.error ?? "Command cancelled",
+                    }),
+                    resume: suspended.has(recovery.sessionID) ? false : undefined,
+                  })
+                  .pipe(
+                    Effect.catchTag("Session.NotFoundError", () => Effect.void),
+                    Effect.orDie,
+                    Effect.andThen(jobs.completeBackground(background.notificationID)),
+                  )
+              : Effect.void,
+          ),
+          Effect.forkIn(scope),
+        )
+        return true
+      })
+
       const recoverShell = Effect.fnUntraced(function* (
         background: Job.Background,
         recovery: Extract<Job.Recovery, { kind: "shell" }>,
+        suspended: ReadonlySet<SessionSchema.ID>,
       ) {
+        // A previous process may have admitted the outcome but died before
+        // acknowledging its marker. Never restart already-notified work.
+        if (
+          (yield* store.message(background.notificationID)) ||
+          (yield* sessions.inbox(recovery.sessionID).pipe(
+            Effect.catchTag("Session.NotFoundError", () => Effect.succeed([])),
+            Effect.orDie,
+          )).some((item) => item.id === background.notificationID)
+        ) {
+          yield* jobs.completeBackground(background.notificationID)
+          return
+        }
+        if (yield* restartShell(background, recovery, suspended)) return
         const state = background.status === "running" ? "cancelled" : background.status
         const text =
           background.status === "running"
-            ? "Command cancelled because the server restarted"
+            ? "Command cancelled because the server restarted; automatic restart requires an allowlisted watcher with saved working directory and shell, and fewer than 3 restarts. Do not automatically repeat other commands."
             : state === "completed"
               ? (background.output ?? "Command completed")
               : state === "error"
@@ -210,7 +310,7 @@ export const layer = (options?: Options) =>
               if ((yield* jobs.get(background.id))?.status === "running") return
               const recovery = background.recovery
               yield* recovery.kind === "shell"
-                ? recoverShell(background, recovery)
+                ? recoverShell(background, recovery, suspended)
                 : recoverSubagent(background, recovery, suspended)
             }),
             { discard: true },
@@ -236,5 +336,5 @@ export const layer = (options?: Options) =>
 export const node = makeGlobalNode({
   service: Service,
   layer: layer(),
-  deps: [SessionStore.node, SessionExecution.node, Bus.node, Job.node, Session.node],
+  deps: [SessionStore.node, SessionExecution.node, Bus.node, Job.node, Session.node, Instance.node],
 })

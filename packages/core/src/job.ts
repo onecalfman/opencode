@@ -5,6 +5,7 @@ import { makeGlobalNode } from "@opencode/util/effect/app-node"
 import { KV } from "./kv.js"
 import { SessionMessage } from "./session/message.js"
 import { SessionSchema } from "./session/schema.js"
+import { NonNegativeInt } from "@opencode/schema/schema"
 
 const Background = Schema.Struct({
   id: Schema.String,
@@ -15,6 +16,9 @@ const Background = Schema.Struct({
       sessionID: SessionSchema.ID,
       shellID: Schema.String,
       command: Schema.String,
+      cwd: Schema.optionalKey(Schema.String),
+      shell: Schema.optionalKey(Schema.String),
+      restartAttempts: Schema.optionalKey(NonNegativeInt),
     }),
     Schema.Struct({
       kind: Schema.Literal("subagent"),

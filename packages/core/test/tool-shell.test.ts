@@ -1677,6 +1677,12 @@ describe("ShellTool", () => {
                 id: settled.metadata?.shellID,
                 status: "completed",
                 output: "(no output)\n\nExited with code 7",
+                recovery: {
+                  kind: "shell",
+                  command: "exit 7",
+                  cwd: tmp.path,
+                  shell: expect.stringMatching(/.+/),
+                },
               },
             ])
           }),

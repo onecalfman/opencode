@@ -13,6 +13,9 @@ v2-core-tests: check-bun
 v2-session-inactivity-tests: check-bun
     bun run --cwd packages/core script/test.ts test/location-activity.test.ts test/session-execution.test.ts test/session-run-coordinator.test.ts test/form.test.ts test/browser-idle.test.ts
 
+v2-command-recovery-tests: check-bun
+    bun run --cwd packages/core script/test.ts test/shell-restart.test.ts test/session-execution.test.ts test/job.test.ts test/tool-shell.test.ts
+
 [working-directory: "packages/app"]
 v2-ui-tests: check-bun
     PLAYWRIGHT_PORT=4473 bun run test:e2e:built -- e2e/regression/tabs.spec.ts e2e/regression/settings.spec.ts --project chromium --workers=3 --retries=0 --reporter=line

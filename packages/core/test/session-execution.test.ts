@@ -11,6 +11,9 @@ import { KV } from "@opencode/core/kv"
 import { LocationServiceMap } from "@opencode/core/location-service-map"
 import type { LocationServices } from "@opencode/core/location-services"
 import { Project } from "@opencode/core/project"
+import { Plugin } from "@opencode/core/plugin/service"
+import { Service, type Interface } from "@opencode/core/shell"
+import { Shell } from "@opencode/schema/shell"
 import { ProjectTable } from "@opencode/core/project/sql"
 import { AbsolutePath } from "@opencode/core/schema"
 import { Session } from "@opencode/core/session"
@@ -22,7 +25,7 @@ import { SessionMessage } from "@opencode/core/session/message"
 import { SessionRunner } from "@opencode/core/session/runner/index"
 import { SessionInboxTable, SessionTable } from "@opencode/core/session/sql"
 import { SessionStore } from "@opencode/core/session/store"
-import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, LayerMap, Scope } from "effect"
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, LayerMap, Scope, Stream } from "effect"
 import { eq } from "drizzle-orm"
 import { testEffect } from "./lib/effect"
 
@@ -550,7 +553,13 @@ describe("SessionRestart background recovery", () => {
         const sessionID = Session.ID.make("ses_shell_notification_retry")
         yield* seedSessions(database, [sessionID])
         yield* seedBackground(jobs, sessionID, [
-          { id: "call-shell-notified", shellID: "sh_notified", command: "echo done" },
+          {
+            id: "call-shell-notified",
+            shellID: "sh_notified",
+            command: "gh run watch 123",
+            cwd: "/project",
+            shell: "/bin/bash",
+          },
         ])
         const background = (yield* jobs.pendingBackground)[0]
         if (!background) return yield* Effect.die("background record missing")
@@ -601,6 +610,232 @@ describe("SessionRestart background recovery", () => {
       yield* Context.get(context, SessionRestart.Service).resumeSuspendedSessions
 
       expect(yield* restarted.pendingBackground).toEqual([])
+    }),
+  )
+
+  it.effect("restarts an allowlisted watcher once and delivers its eventual output", () =>
+    Effect.gen(function* () {
+      const database = yield* Database.Service
+      const jobs = yield* Job.Service
+      const sessionID = Session.ID.make("ses_restart_watcher")
+      yield* seedSessions(database, [sessionID])
+      yield* seedBackground(jobs, sessionID, [
+        {
+          id: "call-watcher",
+          shellID: "sh_original",
+          command: "gh run watch 123 --exit-status",
+          cwd: "/original/worktree",
+          shell: "/bin/bash",
+        },
+      ])
+      const scope = yield* Scope.make()
+      yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+      const restarted = yield* Job.make.pipe(Scope.provide(scope))
+      const release = yield* Deferred.make<void>()
+      const calls: Array<Parameters<Interface["create"]>[0]> = []
+      const context = yield* buildExecution(
+        scope,
+        () => Effect.void,
+        undefined,
+        restarted,
+        watcherLayer(calls, release),
+      )
+      const restart = Context.get(context, SessionRestart.Service)
+      yield* restart.resumeSuspendedSessions
+      yield* restart.resumeSuspendedSessions
+      expect(calls).toEqual([
+        {
+          command: "gh run watch 123 --exit-status",
+          cwd: "/original/worktree",
+          shell: "/bin/bash",
+          metadata: { sessionID, background: true },
+        },
+      ])
+      expect(yield* restarted.pendingBackground).toMatchObject([
+        {
+          id: "call-watcher",
+          status: "running",
+          recovery: { shellID: "sh_restarted", restartAttempts: 1 },
+        },
+      ])
+      expect(yield* SessionInbox.list(database.db, sessionID)).toEqual([])
+
+      const bus = yield* Bus.Service
+      const notified = yield* bus.subscribe(SessionEvent.InboxEnqueued).pipe(
+        Stream.filter((event) => event.data.sessionID === sessionID),
+        Stream.runHead,
+        Effect.forkScoped({ startImmediately: true }),
+      )
+      yield* Deferred.succeed(release, undefined)
+      yield* Fiber.join(notified)
+      yield* Context.get(context, SessionExecution.Service).awaitIdle(sessionID)
+      expect(yield* SessionInbox.list(database.db, sessionID)).toMatchObject([
+        {
+          payload: {
+            metadata: { source: "shell", shellID: "sh_restarted", jobID: "call-watcher", state: "completed" },
+            text: expect.stringContaining("watcher finished"),
+          },
+        },
+      ])
+      yield* restart.resumeSuspendedSessions
+      expect(calls).toHaveLength(1)
+      expect(yield* restarted.pendingBackground).toEqual([])
+    }),
+  )
+
+  it.effect("cancelling a recovered watcher stops its process and does not restart it", () =>
+    Effect.gen(function* () {
+      const database = yield* Database.Service
+      const jobs = yield* Job.Service
+      const sessionID = Session.ID.make("ses_cancel_restarted_watcher")
+      yield* seedSessions(database, [sessionID])
+      yield* seedBackground(jobs, sessionID, [
+        {
+          id: "cancel-watcher",
+          shellID: "sh_original",
+          command: "gh run watch 123 --exit-status",
+          cwd: "/original/worktree",
+          shell: "/bin/bash",
+        },
+      ])
+      const scope = yield* Scope.make()
+      yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+      const restarted = yield* Job.make.pipe(Scope.provide(scope))
+      const release = yield* Deferred.make<void>()
+      const calls: Array<Parameters<Interface["create"]>[0]> = []
+      const removed: Shell.ID[] = []
+      const context = yield* buildExecution(
+        scope,
+        () => Effect.void,
+        undefined,
+        restarted,
+        watcherLayer(calls, release, removed),
+      )
+      const restart = Context.get(context, SessionRestart.Service)
+      yield* restart.resumeSuspendedSessions
+      yield* restarted.cancel("cancel-watcher")
+      expect(removed).toEqual([Shell.ID.make("sh_restarted")])
+      yield* restart.resumeSuspendedSessions
+      expect(calls).toHaveLength(1)
+    }),
+  )
+
+  for (const fixture of [
+    { command: "gh run watch 123 && gh pr merge 42", cwd: "/project", shell: "/bin/bash" },
+    { command: "gh run watch 123", cwd: "/project", shell: "/bin/bash", restartAttempts: 3 },
+    { command: "gh run watch 123" },
+  ]) {
+    it.effect(`does not restart a blocked or exhausted watcher: ${JSON.stringify(fixture)}`, () =>
+      Effect.gen(function* () {
+        const database = yield* Database.Service
+        const jobs = yield* Job.Service
+        const sessionID = Session.ID.make("ses_blocked_watcher")
+        yield* seedSessions(database, [sessionID])
+        yield* seedBackground(jobs, sessionID, [{ id: "call-blocked", shellID: "sh_blocked", ...fixture }])
+        const scope = yield* Scope.make()
+        yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+        const restarted = yield* Job.make.pipe(Scope.provide(scope))
+        const context = yield* buildExecution(scope, () => Effect.die("must remain idle"), undefined, restarted)
+        yield* Context.get(context, SessionRestart.Service).resumeSuspendedSessions
+        expect(yield* restarted.pendingBackground).toEqual([])
+        expect(yield* SessionInbox.list(database.db, sessionID)).toMatchObject([
+          {
+            payload: {
+              metadata: { source: "shell", state: "cancelled" },
+              text: expect.stringContaining("Do not automatically repeat"),
+            },
+          },
+        ])
+      }),
+    )
+  }
+
+  for (const status of ["completed", "error", "cancelled"] as const) {
+    it.effect(`does not restart an allowlisted watcher that already ${status}`, () =>
+      Effect.gen(function* () {
+        const database = yield* Database.Service
+        const jobs = yield* Job.Service
+        const sessionID = Session.ID.make("ses_terminal_watcher")
+        yield* seedSessions(database, [sessionID])
+        const finish = yield* Deferred.make<string, string>()
+        yield* jobs.start({
+          id: "terminal-watcher",
+          type: "shell",
+          recovery: {
+            kind: "shell",
+            sessionID,
+            shellID: "sh_terminal",
+            command: "gh run watch 123",
+            cwd: "/project",
+            shell: "/bin/bash",
+          },
+          run: Deferred.await(finish),
+        })
+        yield* jobs.background("terminal-watcher")
+        if (status === "cancelled") yield* jobs.cancel("terminal-watcher")
+        if (status === "completed") yield* Deferred.succeed(finish, "Checks finished")
+        if (status === "error") yield* Deferred.fail(finish, "Connection failed")
+        yield* jobs.wait({ id: "terminal-watcher" })
+        const scope = yield* Scope.make()
+        yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+        const restarted = yield* Job.make.pipe(Scope.provide(scope))
+        const context = yield* buildExecution(scope, () => Effect.die("must remain idle"), undefined, restarted)
+        yield* Context.get(context, SessionRestart.Service).resumeSuspendedSessions
+        expect(yield* restarted.pendingBackground).toEqual([])
+        const inbox = yield* SessionInbox.list(database.db, sessionID)
+        // Explicit cancellation can consume the marker immediately. Neither case may spawn a shell.
+        expect(inbox.every((item) => item.type === "synthetic" && item.payload.metadata?.state === status)).toBe(true)
+      }),
+    )
+  }
+
+  it.effect("persists a watcher's restart budget across server lifetimes", () =>
+    Effect.gen(function* () {
+      const database = yield* Database.Service
+      const jobs = yield* Job.Service
+      const sessionID = Session.ID.make("ses_watcher_budget")
+      yield* seedSessions(database, [sessionID])
+      yield* seedBackground(jobs, sessionID, [
+        {
+          id: "budget-watcher",
+          shellID: "sh_original",
+          command: "gh run watch 123 --exit-status",
+          cwd: "/original/worktree",
+          shell: "/bin/bash",
+        },
+      ])
+      const calls: Array<Parameters<Interface["create"]>[0]> = []
+      for (const attempt of [1, 2, 3, 4]) {
+        const scope = yield* Scope.make()
+        yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+        const restarted = yield* Job.make.pipe(Scope.provide(scope))
+        const release = yield* Deferred.make<void>()
+        const context = yield* buildExecution(
+          scope,
+          () => Effect.void,
+          undefined,
+          restarted,
+          watcherLayer(calls, release),
+        )
+        yield* Context.get(context, SessionRestart.Service).resumeSuspendedSessions
+        expect(calls).toHaveLength(Math.min(attempt, 3))
+        expect(yield* restarted.pendingBackground).toMatchObject(
+          attempt > 3
+            ? []
+            : [
+                {
+                  recovery: { restartAttempts: attempt },
+                  status: "running",
+                },
+              ],
+        )
+        yield* Scope.close(scope, Exit.void)
+      }
+      expect(yield* SessionInbox.list(database.db, sessionID)).toMatchObject([
+        {
+          payload: { metadata: { state: "cancelled" } },
+        },
+      ])
     }),
   )
 
@@ -1236,7 +1471,14 @@ describe("SessionExecution interrupt continuation", () => {
 function seedBackground(
   jobs: Job.Interface,
   sessionID: Session.ID,
-  background: ReadonlyArray<{ readonly id: string; readonly shellID: string; readonly command: string }>,
+  background: ReadonlyArray<{
+    readonly id: string
+    readonly shellID: string
+    readonly command: string
+    readonly cwd?: string
+    readonly shell?: string
+    readonly restartAttempts?: number
+  }>,
 ) {
   return Effect.forEach(
     background,
@@ -1245,7 +1487,15 @@ function seedBackground(
         yield* jobs.start({
           id: job.id,
           type: "shell",
-          recovery: { kind: "shell", sessionID, shellID: job.shellID, command: job.command },
+          recovery: {
+            kind: "shell",
+            sessionID,
+            shellID: job.shellID,
+            command: job.command,
+            ...(job.cwd ? { cwd: job.cwd } : {}),
+            ...(job.shell ? { shell: job.shell } : {}),
+            ...(job.restartAttempts !== undefined ? { restartAttempts: job.restartAttempts } : {}),
+          },
           run: Effect.never,
         })
         yield* jobs.background(job.id)
@@ -1340,6 +1590,7 @@ function buildExecution(
   drain: (input: Parameters<SessionRunner.Interface["drain"]>[0]) => Effect.Effect<void, SessionRunner.RunError>,
   options?: SessionRestart.Options,
   overrideJobs?: Job.Interface,
+  shellLayer?: Layer.Layer<Service | Plugin.Service>,
 ) {
   return Effect.gen(function* () {
     const database = yield* Database.Service
@@ -1372,7 +1623,10 @@ function buildExecution(
         () =>
           // The local execution test only needs the Session runner from the Location graph.
           // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-          runner as unknown as Layer.Layer<LocationServices, FileSystem.DirectoryNotFoundError>,
+          (shellLayer ? Layer.merge(runner, shellLayer) : runner) as unknown as Layer.Layer<
+            LocationServices,
+            FileSystem.DirectoryNotFoundError
+          >,
       ),
     )
     return yield* Layer.buildWithScope(
@@ -1391,4 +1645,61 @@ function buildExecution(
       scope,
     )
   })
+}
+
+// Replace only the process boundary: recovery, persistence, notifications and
+// Session coordination above all use their production implementations.
+function watcherLayer(
+  calls: Array<Parameters<Interface["create"]>[0]>,
+  release: Deferred.Deferred<void>,
+  removed?: Shell.ID[],
+) {
+  const info = Shell.Info.make({
+    id: Shell.ID.make("sh_restarted"),
+    command: "gh run watch 123 --exit-status",
+    cwd: "/original/worktree",
+    shell: "/bin/bash",
+    file: "/watcher.out",
+    status: "running",
+    metadata: {},
+    time: { started: 1 },
+  })
+  return Layer.merge(
+    Layer.succeed(
+      Service,
+      Service.of({
+        create: (input) =>
+          Effect.sync(() => {
+            calls.push(input)
+            return info
+          }),
+        result: () =>
+          Deferred.await(release).pipe(
+            Effect.as({
+              info: { ...info, status: "exited" as const, exit: 0 },
+              capture: { output: "watcher finished", truncated: false },
+            }),
+          ),
+        list: () => Effect.succeed([info]),
+        get: () => Effect.succeed(info),
+        wait: () => Effect.succeed(info),
+        timeout: () => Effect.succeed(info),
+        output: () => Effect.die("unused"),
+        remove: (id) =>
+          Effect.sync(() => {
+            removed?.push(id)
+          }),
+      }),
+    ),
+    Layer.succeed(
+      Plugin.Service,
+      Plugin.Service.of({
+        awaitActivation: Effect.void,
+        activate: () => Effect.void,
+        close: () => Effect.void,
+        list: () => Effect.succeed([]),
+        hold: () => Effect.succeed(Effect.void),
+      }),
+    ),
+  )
 }
