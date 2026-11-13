@@ -23,8 +23,7 @@ v2-build-cli: check-bun
 
 # Rebuild browser assets as well as the binary; never reuse an older worktree's bundle.
 v2-build-release version: check-bun
-    OPENCODE_CHANNEL=latest OPENCODE_VERSION="{{version}}" bun run --cwd packages/app build
-    OPENCODE_CHANNEL=latest OPENCODE_VERSION="{{version}}" bun run --cwd packages/cli script/build.ts --single --skip-install --skip-web-ui
+    OPENCODE_CHANNEL=latest OPENCODE_VERSION="{{version}}" bun run --cwd packages/cli script/build.ts --single --skip-install
 
 [working-directory: "packages/app"]
 v2-command-progress-tests: check-bun
