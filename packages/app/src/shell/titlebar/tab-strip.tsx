@@ -36,6 +36,7 @@ function SessionTabSlot(props: {
   preparing: boolean
   unread: boolean
   loading: boolean
+  commandRunning: boolean
   question: boolean
   fallbackTitle?: string
   onRename: (title: string) => Promise<void>
@@ -79,6 +80,7 @@ function SessionTabSlot(props: {
         preparing={props.preparing}
         unread={props.unread}
         loading={props.loading}
+        commandRunning={props.commandRunning}
         question={props.question}
         fallbackTitle={props.fallbackTitle}
         onRename={props.onRename}
@@ -217,6 +219,7 @@ function SessionTabEntry(props: {
         preparing={!!pending()}
         unread={unread()}
         loading={status.loading()}
+        commandRunning={status.commandRunning()}
         question={status.question()}
         fallbackTitle={
           pending()

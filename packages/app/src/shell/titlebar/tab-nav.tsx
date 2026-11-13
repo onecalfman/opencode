@@ -29,6 +29,7 @@ export function TabNavItem(props: {
   preparing: boolean
   unread: boolean
   loading: boolean
+  commandRunning: boolean
   question: boolean
   fallbackTitle?: string
   onRename: (title: string) => Promise<void>
@@ -309,6 +310,7 @@ export function TabNavItem(props: {
                 directory={session.location.directory}
                 unread={false}
                 loading={props.loading}
+                commandRunning={props.commandRunning}
                 question={props.question}
               />
             )}

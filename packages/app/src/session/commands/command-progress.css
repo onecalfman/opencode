@@ -1,0 +1,21 @@
+[data-component="command-progress"] {
+  display: block;
+  flex-shrink: 0;
+  color: var(--v2-icon-icon-muted);
+
+  .command-cursor {
+    animation: command-cursor-blink 1s steps(2, jump-none) infinite;
+  }
+}
+
+@keyframes command-cursor-blink {
+  to {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="command-progress"] .command-cursor {
+    animation: none;
+  }
+}

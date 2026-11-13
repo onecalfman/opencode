@@ -434,6 +434,7 @@ export function HomeSessionStatusController(props: {
   render: (state: {
     unread: Accessor<boolean>
     loading: Accessor<boolean>
+    commandRunning: Accessor<boolean>
     question: Accessor<boolean>
     open: Accessor<boolean>
   }) => JSX.Element
@@ -449,6 +450,7 @@ export function HomeSessionStatusController(props: {
   return props.render({
     unread: avatar.unread,
     loading: avatar.loading,
+    commandRunning: avatar.commandRunning,
     question: avatar.question,
     open: () => props.isOpenTab(props.record),
   })

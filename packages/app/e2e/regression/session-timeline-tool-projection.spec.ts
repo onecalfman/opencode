@@ -11,7 +11,7 @@ test("shows command progress until the shell command settles", async ({ page }) 
   })
   const status = page.getByRole("status").filter({ hasText: "Running commands" })
   await expect(status).toBeVisible()
-  await expect(status.locator('[data-component="session-progress-indicator-v2"]')).toBeVisible()
+  await expect(status.locator('[data-component="command-progress"]')).toBeVisible()
   await expect(page.locator('[data-component="session-working"]')).toHaveCount(0)
   await timeline.send(partUpdated(toolPart(id, "shell", "completed", command, { output: "done" })))
   await expect(status).toHaveCount(0)
@@ -35,7 +35,7 @@ test("shows command progress for an idle session until its background shell exit
   })
   const progress = page.getByRole("status").filter({ hasText: "Running commands" })
   await expect(progress).toBeVisible()
-  await expect(progress.locator('[data-component="session-progress-indicator-v2"]')).toBeVisible()
+  await expect(progress.locator('[data-component="command-progress"]')).toBeVisible()
   await expect(page.locator('[data-component="session-working"]')).toHaveCount(0)
 
   await timeline.transport.send({

@@ -57,6 +57,20 @@ export function useSessionTabAvatarState(
     () => needsAttention() || (serverCtx()?.notification.session.unread(sessionId(), snapshot?.()) ?? false),
   )
 
+  const commandRunning = createMemo(() => {
+    const data = serverCtx()?.data
+    if (!data || needsAttention()) return false
+    return data.session
+      .list()
+      .some(
+        (session) =>
+          (root?.() ? data.session.root(session.id) === sessionId() : session.id === sessionId()) &&
+          data.shell
+            .list({ directory: session.location.directory })
+            .some((shell) => shell.status === "running" && shell.metadata.sessionID === session.id),
+      )
+  })
+
   const loading = createMemo(() => {
     const data = serverCtx()?.data
 
@@ -64,19 +78,9 @@ export function useSessionTabAvatarState(
 
     if (needsAttention()) return false
 
-    // Shell watchers keep running after the assistant becomes idle.
-    const busy = (id: string) => {
-      if (data.session.status(id) === "running") return true
-      if (data.session.pending.list(id).some((item) => item.type !== "synthetic")) return true
-      const session = data.session.get(id)
-
-      return (
-        !!session &&
-        data.shell
-          .list({ directory: session.location.directory })
-          .some((shell) => shell.status === "running" && shell.metadata.sessionID === id)
-      )
-    }
+    if (commandRunning()) return true
+    const busy = (id: string) =>
+      data.session.status(id) === "running" || data.session.pending.list(id).some((item) => item.type !== "synthetic")
 
     if (root?.())
       return data.session.list().some((session) => data.session.root(session.id) === sessionId() && busy(session.id))
@@ -84,5 +88,5 @@ export function useSessionTabAvatarState(
     return busy(sessionId())
   })
 
-  return { unread, loading, question: hasForms }
+  return { unread, loading, commandRunning, question: hasForms }
 }

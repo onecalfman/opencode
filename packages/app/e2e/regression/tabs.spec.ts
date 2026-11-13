@@ -715,11 +715,27 @@ test("an idle tab stays busy while its session family has a running shell watche
     directory,
     sessions: [a, b, { ...c, parentID: b.id }],
     shellCommands: () => [shell],
+    inbox: [
+      {
+        id: "inb_tab_working",
+        sessionID: a.id,
+        time: { created: 1 },
+        type: "user",
+        payload: { text: "Pending work" },
+        delivery: "queue",
+      },
+    ],
   })
   const tab = (id: string) => page.locator(`[data-titlebar-tab-slot]:has(a[href="${sessionHref(id)}"])`)
   const progress = '[data-component="session-progress-indicator-v2"]'
-  await expect(tab(b.id).locator(progress)).toBeVisible()
-  await expect(tab(a.id).locator(progress)).toHaveCount(0)
+  const command = '[data-component="command-progress"]'
+  await expect(tab(b.id).locator(command)).toBeVisible()
+  await expect(tab(b.id).locator(progress)).toHaveCount(0)
+  await expect(tab(a.id).locator(progress)).toBeVisible()
+  await expect(tab(a.id).locator(command)).toHaveCount(0)
+  await expect(tab(b.id).locator(".command-cursor")).toHaveCSS("animation-name", "command-cursor-blink")
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await expect(tab(b.id).locator(".command-cursor")).toHaveCSS("animation-name", "none")
 
   await workspace.push([
     {
@@ -730,10 +746,13 @@ test("an idle tab stays busy while its session family has a running shell watche
       data: { id: shell.id, status: "exited", exit: 0 },
     } satisfies Extract<OpenCodeEvent, { type: "shell.exited" }>,
   ])
+  await expect(tab(b.id).locator(command)).toHaveCount(0)
   await expect(tab(b.id).locator(progress)).toHaveCount(0)
 })
 
-test("unanswered questions replace session icons until the session family has no pending questions", async ({ page }) => {
+test("unanswered questions replace session icons until the session family has no pending questions", async ({
+  page,
+}) => {
   const workspace = await openSession(page, {
     name: "TabQuestions",
     sessions: [a, b, { ...c, parentID: b.id }],

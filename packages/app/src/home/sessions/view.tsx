@@ -217,6 +217,7 @@ function HomeSessionLeadingController(props: {
           open={state.open()}
           unread={state.unread()}
           loading={state.loading()}
+          commandRunning={state.commandRunning()}
           question={state.question()}
         />
       )}
@@ -230,6 +231,7 @@ function HomeSessionLeading(props: {
   unread: boolean
   loading: boolean
   question: boolean
+  commandRunning: boolean
 }) {
   return (
     <div class="relative shrink-0">
@@ -248,6 +250,7 @@ function HomeSessionLeading(props: {
         directory={props.record.session.location.directory}
         unread={props.unread}
         loading={props.loading}
+        commandRunning={props.commandRunning}
         question={props.question}
       />
     </div>
